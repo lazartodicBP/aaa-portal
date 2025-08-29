@@ -3,15 +3,42 @@ import { Product, UpgradeOption } from './types';
 
 export class ProductService {
   static async getProducts(): Promise<Product[]> {
-    const query = `
-      Name IN ('Classic Basic Monthly', 'Plus Monthly', 'Premier Monthly')
-    `;
+    try {
+      const query = `Name IN ('Classic Basic Monthly', 'Plus Monthly', 'Premier Monthly')`;
 
-    const response = await apiClient.get('/PRODUCT', {
-      params: { queryAnsiSql: query }
-    });
+      const response = await apiClient.get('/PRODUCT', {
+        params: {
+          queryAnsiSql: query
+        }
+      });
 
-    return response.data.retrieveResponse;
+      if (response.data.retrieveResponse) {
+        const products = Array.isArray(response.data.retrieveResponse)
+          ? response.data.retrieveResponse
+          : [response.data.retrieveResponse];
+
+        return products
+          .map((p: any)  => ({
+            id: p.Id,
+            name: p.Name,
+            productId: p.Id,
+            ratingMethodType: p.RatingMethodId,
+            price: this.parsePrice(p.Rate),
+            rate: p.Rate, // Keep original rate string
+            billingCycle: 'MONTHLY' as const,
+            membershipLevel: this.determineMembershipLevel(p.Name),
+            displayName: p.aaa_DisplayName || p.Name,
+            productType: p.aaa_ProductType,
+            level: p.aaa_Level,
+          }))
+          .sort((a: any, b: any) => parseInt(a.level) - parseInt(b.level));
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Failed to get products:', error);
+      throw error;
+    }
   }
 
   static async getUpgradeOptions(currentProductName: string): Promise<UpgradeOption[]> {
@@ -53,5 +80,17 @@ export class ProductService {
     });
 
     return response.data;
+  }
+
+  private static parsePrice(rate: string): number {
+    // Remove $ and parse to float
+    return parseFloat(rate.replace('$', '')) || 0;
+  }
+
+  private static determineMembershipLevel(productName: string): 'CLASSIC' | 'PLUS' | 'PREMIER' {
+    const name = productName.toLowerCase();
+    if (name.includes('premier')) return 'PREMIER';
+    if (name.includes('plus')) return 'PLUS';
+    return 'CLASSIC';
   }
 }

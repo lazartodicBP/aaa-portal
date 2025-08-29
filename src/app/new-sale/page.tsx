@@ -2,18 +2,17 @@
 
 import React from 'react';
 import { SaleProvider } from '@/context/SaleContext';
-import { CustomerForm } from '@/components/new-sale/CustomerForm';
 import { MembershipSelector } from '@/components/new-sale/MembershipSelector';
 import { PaymentSetup } from '@/components/new-sale/PaymentSetup';
+import { CheckCircle } from 'lucide-react';
 import { useSale } from '@/context/SaleContext';
 
 function SaleSteps() {
   const { state } = useSale();
 
   const steps = [
-    { number: 1, title: 'Customer Info' },
-    { number: 2, title: 'Membership' },
-    { number: 3, title: 'Payment' },
+    { number: 1, title: 'Select Membership' },
+    { number: 2, title: 'Payment & Information' },
   ];
 
   return (
@@ -27,11 +26,15 @@ function SaleSteps() {
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
                     state.step >= step.number
-                      ? 'bg-[#004B87] text-white'
+                      ? 'bg-aaa-blue text-white'
                       : 'bg-gray-200 text-gray-500'
                   }`}
                 >
-                  {step.number}
+                  {state.step > step.number ? (
+                    <CheckCircle className="w-6 h-6" />
+                  ) : (
+                    step.number
+                  )}
                 </div>
                 <span className="ml-2 text-sm font-medium">
                   {step.title}
@@ -41,7 +44,7 @@ function SaleSteps() {
                 <div
                   className={`w-24 h-1 mx-4 ${
                     state.step > step.number
-                      ? 'bg-[#004B87]'
+                      ? 'bg-aaa-blue'
                       : 'bg-gray-200'
                   }`}
                 />
@@ -53,9 +56,8 @@ function SaleSteps() {
 
       {/* Step Content */}
       <div>
-        {state.step === 1 && <CustomerForm />}
-        {state.step === 2 && <MembershipSelector />}
-        {state.step === 3 && <PaymentSetup />}
+        {state.step === 1 && <MembershipSelector />}
+        {state.step === 2 && <PaymentSetup />}
       </div>
     </div>
   );
@@ -65,8 +67,8 @@ export default function NewSalePage() {
   return (
     <SaleProvider>
       <div>
-        <h1 className="text-3xl font-bold text-[#004B87] mb-6">
-          New Membership Sale
+        <h1 className="text-3xl font-bold text-aaa-blue mb-6">
+          New AAA Membership
         </h1>
         <SaleSteps />
       </div>

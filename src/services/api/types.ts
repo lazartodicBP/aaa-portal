@@ -30,8 +30,12 @@ export interface Product {
   productId: string;
   ratingMethodType: string;
   price: number;
+  rate: string; // Original rate string with $
   billingCycle: 'MONTHLY' | 'ANNUAL';
   membershipLevel: 'CLASSIC' | 'PLUS' | 'PREMIER';
+  displayName: string;
+  productType?: string;
+  level?: string;
 }
 
 export interface AccountProduct {

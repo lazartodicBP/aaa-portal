@@ -10,6 +10,15 @@ export async function GET(
   const searchParams = request.nextUrl.searchParams;
   const sessionId = request.headers.get('sessionid');
 
+  let fullUrl: string;
+
+  if (path.startsWith('hostedPayments/')) {
+    const hppBaseUrl = process.env.HPP_BASE_URL || 'https://my.billingplatform.com/membership_demo';
+    fullUrl = `${hppBaseUrl}/${path}?${searchParams}`;
+  } else {
+    fullUrl = `${API_BASE_URL}/${path}?${searchParams}`;
+  }
+
   try {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -19,12 +28,9 @@ export async function GET(
       headers['sessionid'] = sessionId;
     }
 
-    const response = await fetch(
-      `${API_BASE_URL}/${path}?${searchParams}`,
-      {
-        headers,
-      }
-    );
+    const response = await fetch(fullUrl, {
+      headers,
+    });
 
     const data = await response.json();
     return NextResponse.json(data, { status: response.status });
@@ -45,11 +51,22 @@ export async function POST(
   const body = await request.json();
   const sessionId = request.headers.get('sessionid');
 
+  let fullUrl: string;
+
+  // Check if this is an HPP endpoint
+  if (path.startsWith('hostedPayments/')) {
+    // HPP endpoints use a different base URL
+    const hppBaseUrl = process.env.HPP_BASE_URL || 'https://my.billingplatform.com/membership_demo';
+    fullUrl = `${hppBaseUrl}/${path}`;
+  } else {
+    // Regular API endpoints
+    fullUrl = `${API_BASE_URL}/${path}`;
+  }
+
   console.log('Proxy POST:', {
     path,
-    body,
-    sessionId,
-    fullUrl: `${API_BASE_URL}/${path}`
+    fullUrl,
+    sessionId: sessionId ? 'present' : 'none'
   });
 
   try {
@@ -62,17 +79,23 @@ export async function POST(
       headers['sessionid'] = sessionId;
     }
 
-    const response = await fetch(
-      `${API_BASE_URL}/${path}`,
-      {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(body),
-      }
-    );
+    const response = await fetch(fullUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
 
-    const data = await response.json();
-    return NextResponse.json(data, { status: response.status });
+    const responseText = await response.text();
+
+    try {
+      const data = JSON.parse(responseText);
+      return NextResponse.json(data, { status: response.status });
+    } catch (parseError) {
+      return NextResponse.json(
+        { error: 'Invalid JSON response', details: responseText },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Proxy POST error:', error);
     return NextResponse.json(

@@ -1,241 +1,267 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Card } from '../ui/Card';
+import React, { useEffect, useState } from 'react';
 import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
 import { Alert } from '../ui/Alert';
-import { PromoCodeInput } from './PromoCodeInput';
 import { useSale } from '@/context/SaleContext';
-import { AccountService } from '@/services/api/account.service';
-import { PromoService } from "@/services/api/promo.service";
-import {CreditCard, Calendar, CheckCircle} from 'lucide-react';
+import { HPPService } from '@/services/api/hpp.service';
+import { ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+
+declare global {
+  interface Window {
+    HostedPayments: any;
+  }
+}
 
 export function PaymentSetup() {
   const { state, dispatch } = useSale();
-  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [promoError, setPromoError] = useState<string | null>(null);
 
-  const handlePaymentMethodChange = (method: 'onetime' | 'autopay') => {
-    dispatch({ type: 'SET_PAYMENT_METHOD', payload: method });
+  // First effect: Load token
+  useEffect(() => {
+    // Clear any cached token to force re-authentication
+    HPPService.clearToken();
 
-    // Check if promo code requires autopay
-    if (state.promoCode && method === 'onetime') {
-      // In real app, check promo requirements
-      setPromoError('Selected promo code requires automatic payment');
-    } else {
-      setPromoError(null);
-    }
-  };
+    const loadToken = async () => {
+      try {
+        const hppToken = await HPPService.getSecurityToken();
+        if (!hppToken) {
+          setError('Failed to initialize payment system');
+        } else {
+          setToken(hppToken);
+        }
+      } catch (err) {
+        console.error('Error loading token:', err);
+        setError('Payment system error');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const handleSubmit = async () => {
-    if (promoError) {
-      setError('Please enable automatic payment to use the selected promo code');
+    loadToken();
+  }, []);
+
+  // Second effect: Initialize HPP when token is available and DOM is ready
+  useEffect(() => {
+    if (!token || loading) {
       return;
     }
 
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Create account
-      const account = await AccountService.createAccount({
-        name: `${state.customer.firstName} ${state.customer.lastName}`,
-        status: 'ACTIVE',
-        accountTypeId: 'INDIVIDUAL',
-      });
-
-      // Create billing profile
-      const billingProfile = await AccountService.createBillingProfile({
-        accountId: account.id!,
-        billTo: `${state.customer.firstName} ${state.customer.lastName}`,
-        address1: state.customer.address.street,
-        city: state.customer.address.city,
-        state: state.customer.address.state,
-        zip: state.customer.address.zip,
-        country: 'US',
-        email: state.customer.email,
-        currencyCode: 'USD',
-        billingCycle: state.selectedProduct.billingCycle,
-        paymentTermDays: 30,
-        billingMethod: 'EMAIL',
-        invoiceDeliveryMethod: 'EMAIL',
-      });
-
-      // Create account product
-      const accountProduct = await AccountService.createAccountProduct({
-        accountId: account.id!,
-        productId: state.selectedProduct.id,
-        quantity: 1,
-        startDate: new Date().toISOString(),
-        status: 'ACTIVE',
-      });
-
-      // Apply promo code if present
-      if (state.promoCode) {
-        await PromoService.addAccountPromoCode(account.id!, state.promoCode);
+    // Small delay to ensure DOM is fully rendered
+    const initTimer = setTimeout(() => {
+      const container = document.querySelector('#payment-form');
+      if (!container) {
+        console.error('Payment form container not found in DOM');
+        return;
       }
 
-      setSuccess(true);
+      // Check if script is already loaded
+      if (!window.HostedPayments) {
+        // Load script dynamically
+        const script = document.createElement('script');
+        script.src = 'https://cdn.aws.billingplatform.com/hosted-payments-ui@release/lib.js';
+        script.async = true;
+
+        script.onload = () => {
+          console.log('HPP script loaded');
+          initializeHPP(token);
+        };
+
+        script.onerror = () => {
+          console.error('Failed to load HPP script');
+          setError('Failed to load payment system');
+        };
+
+        document.body.appendChild(script);
+      } else {
+        // Script already loaded, just initialize
+        initializeHPP(token);
+      }
+    }, 100); // 100ms delay to ensure React has completed rendering
+
+    // Cleanup function
+    return () => {
+      clearTimeout(initTimer);
+      const container = document.querySelector('#payment-form');
+      if (container) {
+        container.innerHTML = '';
+      }
+    };
+  }, [token, loading, state.selectedProduct]); // Re-run when token changes or loading completes
+
+  const initializeHPP = (hppToken: string) => {
+    if (!window.HostedPayments || !state.selectedProduct) {
+      console.error('Missing requirements:', {
+        HostedPayments: !!window.HostedPayments,
+        selectedProduct: !!state.selectedProduct
+      });
+      return;
+    }
+
+    // Verify container exists
+    const container = document.querySelector('#payment-form');
+    if (!container) {
+      console.error('Payment form container not found during initialization');
+      return;
+    }
+
+    // Clear any existing content
+    container.innerHTML = '';
+
+    // Prepare the account request as JSON string
+    const accountRequest = JSON.stringify({
+      name: `AAA_Member_${Date.now()}`,
+      description: `AAA ${state.selectedProduct.membershipLevel} Membership`,
+      additionalFields: [
+        {
+          key: "MembershipType",
+          value: state.selectedProduct.membershipLevel
+        },
+        {
+          key: "ProductId",
+          value: state.selectedProduct.id
+        }
+      ],
+      billingProfileRequest: {
+        additionalFields: [
+          {
+            key: "CurrencyCode",
+            value: "USD"
+          },
+          {
+            key: "BillTo",
+            value: "AAA Member"
+          },
+          {
+            key: "Address1",
+            value: "1234 Main St"
+          }
+        ]
+      }
+    });
+
+    console.log('Initializing HPP with:', {
+      token: hppToken.substring(0, 20) + '...',
+      environmentId: process.env.NEXT_PUBLIC_BP_ENV_ID,
+      amount: state.selectedProduct.price,
+      apiUrl: process.env.NEXT_PUBLIC_HPP_URL,
+      containerExists: !!document.querySelector('#payment-form')
+    });
+
+    try {
+      window.HostedPayments.renderPaymentForm(
+        {
+          containerWidth: '100%',
+          minContainerWidth: '410px',
+          maxContainerWidth: '100%',
+          // Required parameters
+          securityToken: hppToken,
+          environmentId: process.env.NEXT_PUBLIC_BP_ENV_ID,
+          paymentGateways: {
+            creditCard: {
+              gateway: "Adyen_CC"
+            },
+            directDebit: {
+              gateway: "Adyen_DD"
+            }
+          },
+          amount: state.selectedProduct.price,
+          targetSelector: "#payment-form",
+          apiUrl: process.env.NEXT_PUBLIC_HPP_URL,
+          accountRequest: accountRequest,
+          // Optional parameters
+          countryCode: "US",
+          walletMode: false,
+          allowEditPrice: false,
+          currencyCode: "USD"
+        },
+        {
+          successCapture: () => router.push("/portal"),
+          addPaymentMethod: () => router.push("/portal"),
+          error: (err: Error) => {
+            console.warn("HPP bootstrap error:", err.message);
+          }
+        }
+      );
+      console.log('HPP initialization complete');
     } catch (err) {
-      setError('Failed to complete membership setup');
-    } finally {
-      setLoading(false);
+      console.error('Failed to initialize HPP:', err);
+      setError('Failed to initialize payment form');
     }
   };
 
-  if (success) {
+  if (!state.selectedProduct) {
     return (
-      <Card className="max-w-2xl mx-auto">
-        <div className="p-6 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle className="w-8 h-8 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-bold text-[#004B87] mb-2">
-            Membership Created Successfully!
-          </h2>
-          <p className="text-gray-600 mb-6">
-            Welcome {state.customer.firstName} to AAA {state.selectedProduct.membershipLevel}!
-          </p>
-          <Button
-            variant="primary"
-            onClick={() => {
-              dispatch({ type: 'RESET' });
-              dispatch({ type: 'SET_STEP', payload: 1 });
-            }}
-          >
-            Create Another Membership
-          </Button>
-        </div>
-      </Card>
+      <div className="text-center">
+        <Alert variant="error" message="No membership selected" />
+        <Button
+          variant="outline"
+          onClick={() => dispatch({ type: 'SET_STEP', payload: 1 })}
+          className="mt-4"
+        >
+          Back to Membership Selection
+        </Button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-aaa-blue"></div>
+      </div>
+    );
+  }
+
+  if (error || !token) {
+    return (
+      <div>
+        <Alert variant="error" message={error || 'Payment system unavailable'} />
+        <Button
+          variant="outline"
+          onClick={() => dispatch({ type: 'SET_STEP', payload: 1 })}
+          className="mt-4"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+      </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <h2 className="text-2xl font-bold text-[#004B87]">Payment Setup</h2>
+    <div className="max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold text-aaa-blue mb-6">
+        Complete Your {state.selectedProduct.membershipLevel} Membership
+      </h2>
 
-      {error && <Alert variant="error" message={error} />}
-
-      {/* Payment Method Selection */}
-      <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Payment Method</h3>
-
-          <div className="space-y-3">
-            <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-              <input
-                type="radio"
-                name="paymentMethod"
-                value="onetime"
-                checked={state.paymentMethod === 'onetime'}
-                onChange={() => handlePaymentMethodChange('onetime')}
-                className="mt-1"
-              />
-              <div className="ml-3">
-                <div className="font-medium flex items-center">
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  One-Time Payment
-                </div>
-                <p className="text-sm text-gray-600">
-                  Pay for your membership manually when due
-                </p>
-              </div>
-            </label>
-
-            <label className="flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50">
-              <input
-                type="radio"
-                name="paymentMethod"
-                value="autopay"
-                checked={state.paymentMethod === 'autopay'}
-                onChange={() => handlePaymentMethodChange('autopay')}
-                className="mt-1"
-              />
-              <div className="ml-3">
-                <div className="font-medium flex items-center">
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Automatic Payment
-                </div>
-                <p className="text-sm text-gray-600">
-                  Automatically renew your membership
-                </p>
-                {state.promoCode && (
-                  <p className="text-sm text-green-600 mt-1">
-                    Required for promo code discount
-                  </p>
-                )}
-              </div>
-            </label>
+      {/* Selected Membership Summary */}
+      <div className="bg-gray-50 p-4 rounded-lg mb-6">
+        <h3 className="font-semibold mb-2">Selected Membership</h3>
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="font-medium">{state.selectedProduct.name}</p>
+            <p className="text-sm text-gray-600">{state.selectedProduct.displayName}</p>
           </div>
+          <span className="font-bold text-lg">{state.selectedProduct.rate}/month</span>
         </div>
-      </Card>
+      </div>
 
-      {/* Promo Code */}
-      <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Promo Code</h3>
-          <PromoCodeInput onError={setPromoError} />
-          {promoError && (
-            <Alert variant="warning" message={promoError} className="mt-2" />
-          )}
-        </div>
-      </Card>
+      {/* HPP Form Container */}
+      <div id="payment-form" className="bg-white p-6 rounded-lg shadow-md min-h-[400px]" />
 
-      {/* Summary */}
-      <Card>
-        <div className="p-6">
-          <h3 className="text-lg font-semibold mb-4">Order Summary</h3>
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <span>Membership:</span>
-              <span className="font-medium">
-                {state.selectedProduct?.name || 'Not selected'}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span>Price:</span>
-              <span className="font-medium">
-                ${state.selectedProduct?.price || 0}
-                {state.selectedProduct?.billingCycle === 'MONTHLY' ? '/month' : '/year'}
-              </span>
-            </div>
-            {state.promoCode && (
-              <div className="flex justify-between text-green-600">
-                <span>Discount:</span>
-                <span className="font-medium">-50%</span>
-              </div>
-            )}
-            <div className="border-t pt-2 mt-2">
-              <div className="flex justify-between font-semibold">
-                <span>Total:</span>
-                <span>
-                  ${state.selectedProduct?.price ?
-                  (state.promoCode ? state.selectedProduct.price * 0.5 : state.selectedProduct.price) : 0}
-                  {state.selectedProduct?.billingCycle === 'MONTHLY' ? '/month' : '/year'}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Actions */}
-      <div className="flex justify-between">
+      {/* Back Button */}
+      <div className="mt-6">
         <Button
           variant="outline"
-          onClick={() => dispatch({ type: 'SET_STEP', payload: 2 })}
+          onClick={() => dispatch({ type: 'SET_STEP', payload: 1 })}
         >
-          Back
-        </Button>
-        <Button
-          variant="primary"
-          onClick={handleSubmit}
-          loading={loading}
-        >
-          Complete Membership
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Membership Selection
         </Button>
       </div>
     </div>
