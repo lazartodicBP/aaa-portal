@@ -114,7 +114,7 @@ export function PaymentSetup() {
 
     // Prepare the account request as JSON string
     const accountRequest = JSON.stringify({
-      name: `AAA_Member_${Date.now()}`,
+      name: `Alex Hovich`,
       description: `AAA ${state.selectedProduct.membershipLevel} Membership`,
       additionalFields: [
         {
@@ -134,7 +134,7 @@ export function PaymentSetup() {
           },
           {
             key: "BillTo",
-            value: "AAA Member"
+            value: "Alex Hovich"
           },
           {
             key: "Address1",
@@ -142,14 +142,6 @@ export function PaymentSetup() {
           }
         ]
       }
-    });
-
-    console.log('Initializing HPP with:', {
-      token: hppToken.substring(0, 20) + '...',
-      environmentId: process.env.NEXT_PUBLIC_BP_ENV_ID,
-      amount: state.selectedProduct.price,
-      apiUrl: process.env.NEXT_PUBLIC_HPP_URL,
-      containerExists: !!document.querySelector('#payment-form')
     });
 
     try {
@@ -179,13 +171,15 @@ export function PaymentSetup() {
           allowEditPrice: false,
           currencyCode: "USD"
         },
-        {
-          successCapture: () => router.push("/portal"),
-          addPaymentMethod: () => router.push("/portal"),
-          error: (err: Error) => {
-            console.warn("HPP bootstrap error:", err.message);
-          }
-        }
+        // {
+        //   successCapture: () => {
+        //
+        //   },
+        //   // addPaymentMethod: () => router.push("/portal"),
+        //   error: (error: Error) => {
+        //     console.warn("HPP bootstrap error:", error.message);
+        //   }
+        // }
       );
       console.log('HPP initialization complete');
     } catch (err) {
