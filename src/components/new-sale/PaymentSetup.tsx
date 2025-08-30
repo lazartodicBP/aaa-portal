@@ -3,6 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
+import { AccountNameForm } from './AccountForm';
+import { MembershipSummary } from './MembershipSummary';
 import { useSale } from '@/context/SaleContext';
 import { HPPService } from '@/services/api/hpp.service';
 import { ArrowLeft } from 'lucide-react';
@@ -20,6 +22,9 @@ export function PaymentSetup() {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [accountName, setAccountName] = useState('');
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isHPPInitialized, setIsHPPInitialized] = useState(false);
 
   // First effect: Load token
   useEffect(() => {
@@ -45,9 +50,9 @@ export function PaymentSetup() {
     loadToken();
   }, []);
 
-  // Second effect: Initialize HPP when token is available and DOM is ready
+  // Second effect: Initialize HPP when token is available and form is submitted
   useEffect(() => {
-    if (!token || loading) {
+    if (!token || loading || !isHPPInitialized) {
       return;
     }
 
@@ -86,12 +91,14 @@ export function PaymentSetup() {
     // Cleanup function
     return () => {
       clearTimeout(initTimer);
-      const container = document.querySelector('#payment-form');
-      if (container) {
-        container.innerHTML = '';
+      if (isHPPInitialized) {
+        const container = document.querySelector('#payment-form');
+        if (container) {
+          container.innerHTML = '';
+        }
       }
     };
-  }, [token, loading, state.selectedProduct]); // Re-run when token changes or loading completes
+  }, [token, loading, state.selectedProduct, isHPPInitialized, accountName]);
 
   const initializeHPP = (hppToken: string) => {
     if (!window.HostedPayments || !state.selectedProduct) {
@@ -112,9 +119,9 @@ export function PaymentSetup() {
     // Clear any existing content
     container.innerHTML = '';
 
-    // Prepare the account request as JSON string
+    // Prepare the account request as JSON string using the accountName from state
     const accountRequest = JSON.stringify({
-      name: `Alex Hovich`,
+      name: accountName, // Use the account name from the form
       description: `AAA ${state.selectedProduct.membershipLevel} Membership`,
       additionalFields: [
         {
@@ -134,7 +141,7 @@ export function PaymentSetup() {
           },
           {
             key: "BillTo",
-            value: "Alex Hovich"
+            value: accountName
           },
           {
             key: "Address1",
@@ -168,24 +175,38 @@ export function PaymentSetup() {
           // Optional parameters
           countryCode: "US",
           walletMode: false,
-          allowEditPrice: false,
           currencyCode: "USD"
         },
-        // {
-        //   successCapture: () => {
-        //
-        //   },
-        //   // addPaymentMethod: () => router.push("/portal"),
-        //   error: (error: Error) => {
-        //     console.warn("HPP bootstrap error:", error.message);
-        //   }
-        // }
+        {
+          successCapture: () => {
+
+          },
+          error: (error: Error) => {
+            console.warn("HPP bootstrap error:", error.message);
+          }
+        }
       );
       console.log('HPP initialization complete');
     } catch (err) {
       console.error('Failed to initialize HPP:', err);
       setError('Failed to initialize payment form');
     }
+  };
+
+  const handleContinueToPayment = () => {
+    if (!accountName.trim()) {
+      setNameError('Please enter an account name');
+      return;
+    }
+
+    if (accountName.trim().length < 2) {
+      setNameError('Account name must be at least 2 characters');
+      return;
+    }
+
+    setNameError(null);
+
+    setIsHPPInitialized(true);
   };
 
   if (!state.selectedProduct) {
@@ -233,29 +254,50 @@ export function PaymentSetup() {
         Complete Your {state.selectedProduct.membershipLevel} Membership
       </h2>
 
-      {/* Selected Membership Summary */}
-      <div className="bg-gray-50 p-4 rounded-lg mb-6">
-        <h3 className="font-semibold mb-2">Selected Membership</h3>
-        <div className="flex justify-between items-center">
-          <div>
-            <p className="font-medium">{state.selectedProduct.name}</p>
-            <p className="text-sm text-gray-600">{state.selectedProduct.displayName}</p>
+      <MembershipSummary product={state.selectedProduct} />
+
+      {!isHPPInitialized && (
+        <AccountNameForm
+          accountName={accountName}
+          setAccountName={setAccountName}
+          nameError={nameError}
+          setNameError={setNameError}
+          onContinue={handleContinueToPayment}
+        />
+      )}
+
+      {/* HPP Form Container - Only show after account name is provided */}
+      {isHPPInitialized && (
+        <>
+          <div className="bg-gray-50 p-4 rounded-lg mb-4">
+            <p className="text-sm text-gray-600">
+              <span className="font-medium">Account Name:</span> {accountName}
+            </p>
           </div>
-          <span className="font-bold text-lg">{state.selectedProduct.rate}/month</span>
-        </div>
-      </div>
+          <div id="payment-form" className="bg-white p-6 rounded-lg shadow-md min-h-[400px]" />
+        </>
+      )}
 
-      {/* HPP Form Container */}
-      <div id="payment-form" className="bg-white p-6 rounded-lg shadow-md min-h-[400px]" />
-
-      {/* Back Button */}
       <div className="mt-6">
         <Button
           variant="outline"
-          onClick={() => dispatch({ type: 'SET_STEP', payload: 1 })}
+          onClick={() => {
+            if (isHPPInitialized) {
+              // Reset the form if HPP was initialized
+              setIsHPPInitialized(false);
+              setAccountName('');
+              const container = document.querySelector('#payment-form');
+              if (container) {
+                container.innerHTML = '';
+              }
+            } else {
+              // Go back to membership selection
+              dispatch({ type: 'SET_STEP', payload: 1 });
+            }
+          }}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Membership Selection
+          {isHPPInitialized ? 'Back to Account Information' : 'Back to Membership Selection'}
         </Button>
       </div>
     </div>
