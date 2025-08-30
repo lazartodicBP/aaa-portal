@@ -3,18 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
-import { AccountNameForm } from './AccountForm';
+import { AccountNameForm } from './AccountNameForm';
 import { MembershipSummary } from './MembershipSummary';
+import { HostedPaymentForm } from './HostedPaymentForm';
 import { useSale } from '@/context/SaleContext';
 import { HPPService } from '@/services/api/hpp.service';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
-declare global {
-  interface Window {
-    HostedPayments: any;
-  }
-}
 
 export function PaymentSetup() {
   const { state, dispatch } = useSale();
@@ -26,7 +21,7 @@ export function PaymentSetup() {
   const [nameError, setNameError] = useState<string | null>(null);
   const [isHPPInitialized, setIsHPPInitialized] = useState(false);
 
-  // First effect: Load token
+  // Load token
   useEffect(() => {
     // Clear any cached token to force re-authentication
     HPPService.clearToken();
@@ -50,150 +45,8 @@ export function PaymentSetup() {
     loadToken();
   }, []);
 
-  // Second effect: Initialize HPP when token is available and form is submitted
-  useEffect(() => {
-    if (!token || loading || !isHPPInitialized) {
-      return;
-    }
-
-    // Small delay to ensure DOM is fully rendered
-    const initTimer = setTimeout(() => {
-      const container = document.querySelector('#payment-form');
-      if (!container) {
-        console.error('Payment form container not found in DOM');
-        return;
-      }
-
-      // Check if script is already loaded
-      if (!window.HostedPayments) {
-        // Load script dynamically
-        const script = document.createElement('script');
-        script.src = 'https://cdn.aws.billingplatform.com/hosted-payments-ui@release/lib.js';
-        script.async = true;
-
-        script.onload = () => {
-          console.log('HPP script loaded');
-          initializeHPP(token);
-        };
-
-        script.onerror = () => {
-          console.error('Failed to load HPP script');
-          setError('Failed to load payment system');
-        };
-
-        document.body.appendChild(script);
-      } else {
-        // Script already loaded, just initialize
-        initializeHPP(token);
-      }
-    }, 100); // 100ms delay to ensure React has completed rendering
-
-    // Cleanup function
-    return () => {
-      clearTimeout(initTimer);
-      if (isHPPInitialized) {
-        const container = document.querySelector('#payment-form');
-        if (container) {
-          container.innerHTML = '';
-        }
-      }
-    };
-  }, [token, loading, state.selectedProduct, isHPPInitialized, accountName]);
-
-  const initializeHPP = (hppToken: string) => {
-    if (!window.HostedPayments || !state.selectedProduct) {
-      console.error('Missing requirements:', {
-        HostedPayments: !!window.HostedPayments,
-        selectedProduct: !!state.selectedProduct
-      });
-      return;
-    }
-
-    // Verify container exists
-    const container = document.querySelector('#payment-form');
-    if (!container) {
-      console.error('Payment form container not found during initialization');
-      return;
-    }
-
-    // Clear any existing content
-    container.innerHTML = '';
-
-    // Prepare the account request as JSON string using the accountName from state
-    const accountRequest = JSON.stringify({
-      name: accountName, // Use the account name from the form
-      description: `AAA ${state.selectedProduct.membershipLevel} Membership`,
-      additionalFields: [
-        {
-          key: "MembershipType",
-          value: state.selectedProduct.membershipLevel
-        },
-        {
-          key: "ProductId",
-          value: state.selectedProduct.id
-        }
-      ],
-      billingProfileRequest: {
-        additionalFields: [
-          {
-            key: "CurrencyCode",
-            value: "USD"
-          },
-          {
-            key: "BillTo",
-            value: accountName
-          },
-          {
-            key: "Address1",
-            value: "1234 Main St"
-          }
-        ]
-      }
-    });
-
-    try {
-      window.HostedPayments.renderPaymentForm(
-        {
-          containerWidth: '100%',
-          minContainerWidth: '410px',
-          maxContainerWidth: '100%',
-          // Required parameters
-          securityToken: hppToken,
-          environmentId: process.env.NEXT_PUBLIC_BP_ENV_ID,
-          paymentGateways: {
-            creditCard: {
-              gateway: "Adyen_CC"
-            },
-            directDebit: {
-              gateway: "Adyen_DD"
-            }
-          },
-          amount: state.selectedProduct.price,
-          targetSelector: "#payment-form",
-          apiUrl: process.env.NEXT_PUBLIC_HPP_URL,
-          accountRequest: accountRequest,
-          // Optional parameters
-          countryCode: "US",
-          walletMode: false,
-          currencyCode: "USD"
-        },
-        {
-          successCapture: () => {
-
-          },
-          error: (error: Error) => {
-            console.warn("HPP bootstrap error:", error.message);
-          }
-        }
-      );
-      console.log('HPP initialization complete');
-    } catch (err) {
-      console.error('Failed to initialize HPP:', err);
-      setError('Failed to initialize payment form');
-    }
-  };
-
   const handleContinueToPayment = () => {
+    // Validate account name
     if (!accountName.trim()) {
       setNameError('Please enter an account name');
       return;
@@ -204,9 +57,28 @@ export function PaymentSetup() {
       return;
     }
 
+    // Clear any previous errors
     setNameError(null);
 
+    // Initialize HPP
     setIsHPPInitialized(true);
+  };
+
+  const handlePaymentError = (errorMessage: string) => {
+    setError(errorMessage);
+    // Optionally reset the form
+    // setIsHPPInitialized(false);
+  };
+
+  const handlePaymentSuccess = () => {
+    // Navigate to success page or next step
+    router.push("/portal");
+  };
+
+  const handleReset = () => {
+    setIsHPPInitialized(false);
+    setAccountName('');
+    setError(null);
   };
 
   if (!state.selectedProduct) {
@@ -254,8 +126,10 @@ export function PaymentSetup() {
         Complete Your {state.selectedProduct.membershipLevel} Membership
       </h2>
 
+      {/* Selected Membership Summary */}
       <MembershipSummary product={state.selectedProduct} />
 
+      {/* Account Name Form */}
       {!isHPPInitialized && (
         <AccountNameForm
           accountName={accountName}
@@ -267,29 +141,24 @@ export function PaymentSetup() {
       )}
 
       {/* HPP Form Container - Only show after account name is provided */}
-      {isHPPInitialized && (
-        <>
-          <div className="bg-gray-50 p-4 rounded-lg mb-4">
-            <p className="text-sm text-gray-600">
-              <span className="font-medium">Account Name:</span> {accountName}
-            </p>
-          </div>
-          <div id="payment-form" className="bg-white p-6 rounded-lg shadow-md min-h-[400px]" />
-        </>
+      {isHPPInitialized && token && (
+        <HostedPaymentForm
+          token={token}
+          accountName={accountName}
+          product={state.selectedProduct}
+          onError={handlePaymentError}
+          onSuccess={handlePaymentSuccess}
+        />
       )}
 
+      {/* Back Button */}
       <div className="mt-6">
         <Button
           variant="outline"
           onClick={() => {
             if (isHPPInitialized) {
               // Reset the form if HPP was initialized
-              setIsHPPInitialized(false);
-              setAccountName('');
-              const container = document.querySelector('#payment-form');
-              if (container) {
-                container.innerHTML = '';
-              }
+              handleReset();
             } else {
               // Go back to membership selection
               dispatch({ type: 'SET_STEP', payload: 1 });
