@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { clsx } from 'clsx';
@@ -42,6 +42,15 @@ interface MenuItem {
 export const Sidebar: React.FC = () => {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<string[]>(['Members']);
+
+  // Auto-expand Members section when on manage-membership page
+  useEffect(() => {
+    if (pathname.startsWith('/manage-membership/')) {
+      if (!expandedItems.includes('Members')) {
+        setExpandedItems(prev => [...prev, 'Members']);
+      }
+    }
+  }, [pathname]);
 
   const menuItems: MenuItem[] = [
     {
@@ -117,10 +126,23 @@ export const Sidebar: React.FC = () => {
     );
   };
 
-  const isActive = (href: string) => pathname === href;
+  const isActive = (href: string) => {
+    // Special case: highlight "Manage Membership" when on /manage-membership/[accountId]
+    if (href === '/members/manage' && pathname.startsWith('/manage-membership/')) {
+      return true;
+    }
+    return pathname === href;
+  };
+
   const isParentActive = (item: MenuItem) => {
     if (item.href) return isActive(item.href);
-    return item.subItems?.some(subItem => isActive(subItem.href)) || false;
+    // Check if any subitem is active, including our special case
+    return item.subItems?.some(subItem => {
+      if (subItem.href === '/members/manage' && pathname.startsWith('/manage-membership/')) {
+        return true;
+      }
+      return isActive(subItem.href);
+    }) || false;
   };
 
   return (

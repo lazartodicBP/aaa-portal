@@ -1,183 +1,162 @@
 'use client';
 
-import React, { useState } from 'react';
-import {
-  User,
-  Bell,
-  HelpCircle,
-  LogOut,
-  ChevronDown,
-  Search,
-  Settings, UserPlus
-} from 'lucide-react';
-import Link from "next/link";
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/Button';
+import { AccountService } from '@/services/api/account.service';
+import { Account } from '@/services/api/types';
+import { Search, UserPlus, Users } from 'lucide-react';
+import { Logo } from "@/components/ui/Logo";
 
-export const Header: React.FC = () => {
-  const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
+
+export function Header() {
+  const pathname = usePathname();
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Account[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<NodeJS.Timeout>();
 
-  const currentUser = {
-    name: 'Debbie P.',
-    role: 'Sales Agent',
-    initials: 'DP',
+  // Handle clicking outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    setIsSearching(true);
+    timeoutRef.current = setTimeout(async () => {
+      try {
+        const accounts = await AccountService.getAccountsByName(searchQuery);
+        setSearchResults(accounts);
+        setShowDropdown(accounts.length > 0);
+      } catch (error) {
+        console.error('Search error:', error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300); // 300ms debounce
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
+
+  const handleAccountSelect = (account: Account) => {
+    // Navigate to manage membership page with the selected account
+    router.push(`/manage-membership/${account.id}`);
+    setSearchQuery('');
+    setShowDropdown(false);
   };
 
-  const notifications = [
-    { id: 1, message: 'New promo code SPRING2025 activated', time: '5m ago', unread: true },
-    { id: 2, message: 'System maintenance scheduled for tonight', time: '1h ago', unread: true },
-    { id: 3, message: 'Q1 sales report is now available', time: '3h ago', unread: false },
-  ];
-
   return (
-    <header className="bg-aaa-blue text-white shadow-lg relative z-50">
-      <div className="px-4 sm:px-6 lg:px-8">
+    <header className="bg-[#004b87] border-b border-gray-200 shadow-sm">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo and Brand */}
           <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center">
-              <div className="bg-white rounded-full w-10 h-10 flex items-center justify-center">
-                <span className="text-aaa-blue font-bold text-xl">AAA</span>
-              </div>
-              <span className="ml-3 text-lg font-semibold">
-                Customer Service Portal
-              </span>
-            </div>
+            <Link href="/" className="flex items-center">
+              <Logo className="h-8 w-auto text-white" />
+              <span className="ml-3 text-white text-sm">Customer Service Portal</span>
+            </Link>
           </div>
-
-          {/* Search Bar */}
-          <div className="flex-1 max-w-md mx-8">
+          <div className="flex-1 max-w-md mx-8" ref={searchRef}>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-300" />
+                <Search className="w-4 h-4 text-gray-400" />
               </div>
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full pl-10 pr-3 py-2 border border-transparent rounded-md leading-5 bg-aaa-darkblue text-white placeholder-gray-300 focus:outline-none focus:bg-white focus:text-gray-900 focus:placeholder-gray-400 focus:ring-2 focus:ring-white sm:text-sm transition-colors"
-                placeholder="Search members, accounts, or transactions..."
+                placeholder="Search members by name..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
+
+              {/* Loading indicator */}
+              {isSearching && (
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                </div>
+              )}
+
+              {/* Search Results Dropdown */}
+              {showDropdown && searchResults.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full bg-white rounded-md shadow-lg max-h-60 overflow-auto">
+                  <ul className="py-1">
+                    {searchResults.map((account) => (
+                      <li
+                        key={account.id}
+                        onClick={() => handleAccountSelect(account)}
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-0"
+                      >
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">
+                              {account.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              Name: {account.name} • Status: {account.status}
+                            </p>
+                          </div>
+                          <span className="text-xs text-blue-600">
+                            View →
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
-          <Link
-            href="/new-sale"
-            className="group flex items-center px-2 py-2 text-sm font-medium rounded-md text-white hover:bg-gray-100 hover:text-[#004B87]"
-          >
-            <UserPlus className="mr-3 h-5 w-5 text-gray-400 group-hover:text-[#004B87]" />
-            New Member
-          </Link>
-          {/* Right side items */}
-          <div className="flex items-center space-x-4">
-            {/* Help */}
-            <button
-              className="p-2 rounded-md text-gray-200 hover:text-white hover:bg-aaa-darkblue transition-colors"
-              title="Help"
-            >
-              <HelpCircle className="h-5 w-5" />
-            </button>
 
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => {
-                  setShowNotifications(!showNotifications);
-                  setShowUserMenu(false);
-                }}
-                className="p-2 rounded-md text-gray-200 hover:text-white hover:bg-aaa-darkblue transition-colors relative"
-                title="Notifications"
-              >
-                <Bell className="h-5 w-5" />
-                {notifications.filter(n => n.unread).length > 0 && (
-                  <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-aaa-yellow" />
-                )}
-              </button>
+          {/* Primary Action Buttons */}
+          <div className="flex items-center gap-4">
+            {pathname !== '/new-member' && pathname !== '/new-sale' && (
+              <Link href="/new-sale">
+                <Button
+                  variant="secondary"
+                  className="bg-white text-[#004b87] hover:bg-gray-100 font-semibold"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span className="ml-2">New Sale</span>
+                </Button>
+              </Link>
+            )}
 
-              {/* Notifications Dropdown */}
-              {showNotifications && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg py-1 text-gray-700">
-                  <div className="px-4 py-2 border-b border-gray-200">
-                    <h3 className="text-sm font-semibold">Notifications</h3>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {notifications.map(notification => (
-                      <div
-                        key={notification.id}
-                        className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 ${
-                          notification.unread ? 'bg-blue-50' : ''
-                        }`}
-                      >
-                        <p className="text-sm">{notification.message}</p>
-                        <p className="text-xs text-gray-500 mt-1">{notification.time}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-2 border-t border-gray-200">
-                    <button className="text-sm text-aaa-blue hover:underline">
-                      View all notifications
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* User Menu */}
-            <div className="relative">
-              <button
-                onClick={() => {
-                  setShowUserMenu(!showUserMenu);
-                  setShowNotifications(false);
-                }}
-                className="flex items-center space-x-3 p-2 rounded-md text-gray-200 hover:text-white hover:bg-aaa-darkblue transition-colors"
-              >
-                <div className="w-8 h-8 bg-aaa-yellow rounded-full flex items-center justify-center">
-                  <span className="text-aaa-blue font-semibold text-sm">
-                    {currentUser.initials}
-                  </span>
-                </div>
-                <div className="hidden md:block text-left">
-                  <p className="text-sm font-medium">{currentUser.name}</p>
-                  <p className="text-xs text-gray-300">{currentUser.role}</p>
-                </div>
-                <ChevronDown className="h-4 w-4" />
-              </button>
-
-              {/* User Dropdown */}
-              {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg py-1 text-gray-700">
-                  <div className="px-4 py-2 border-b border-gray-200">
-                    <p className="text-sm font-medium">{currentUser.name}</p>
-                    <p className="text-xs text-gray-500">{currentUser.role}</p>
-                  </div>
-
-                  <a
-                    href="#"
-                    className="flex items-center px-4 py-2 text-sm hover:bg-gray-100"
-                  >
-                    <User className="h-4 w-4 mr-3" />
-                    My Profile
-                  </a>
-                  <a
-                    href="#"
-                    className="flex items-center px-4 py-2 text-sm hover:bg-gray-100"
-                  >
-                    <Settings className="h-4 w-4 mr-3" />
-                    Settings
-                  </a>
-                  <hr className="my-1" />
-                  <a
-                    href="#"
-                    className="flex items-center px-4 py-2 text-sm text-red-600 hover:bg-gray-100"
-                  >
-                    <LogOut className="h-4 w-4 mr-3" />
-                    Sign Out
-                  </a>
-                </div>
-              )}
-            </div>
+            {/* Quick Actions */}
+            <Link href="/manage">
+              <Button variant="danger" className="text-white ">
+                <Users className="w-4 h-4" />
+                <span className="ml-2">Get Roadside Assistance</span>
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
     </header>
   );
-};
+}

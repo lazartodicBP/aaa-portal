@@ -59,14 +59,16 @@ export async function POST(
     const hppBaseUrl = process.env.HPP_BASE_URL || 'https://my.billingplatform.com/membership_demo';
     fullUrl = `${hppBaseUrl}/${path}`;
   } else {
-    // Regular API endpoints
+    // Regular API endpoints including /query
     fullUrl = `${API_BASE_URL}/${path}`;
   }
 
   console.log('Proxy POST:', {
     path,
     fullUrl,
-    sessionId: sessionId ? 'present' : 'none'
+    sessionId: sessionId ? 'present' : 'none',
+    // Log SQL query if it's a query endpoint
+    ...(path === 'query' && { sql: body.sql })
   });
 
   try {

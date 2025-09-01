@@ -78,20 +78,31 @@ export class AccountService {
   }
 
   static async getAccountsByName(accountName: string): Promise<Account[]> {
-    const response = await apiClient.get('/ACCOUNT', {
-      params: {
-        queryAnsiSql: `Name='${accountName}'`
-      }
+    const response = await apiClient.post('/query', {
+      sql: `SELECT Id, Name, Status FROM ACCOUNT WHERE UPPER(Name) LIKE UPPER('%${accountName}%')`
     });
 
-    // The API returns an array in retrieveResponse
-    return response.data.retrieveResponse || [];
+    // Transform the response to match our interface
+    const accounts = response.data.queryResponse || [];
+    return accounts.map((acc: any) => ({
+      id: acc.Id,
+      name: acc.Name,
+      status: acc.Status,
+      accountTypeId: acc.AccountTypeId || ''
+    }));
   }
 
+  // Transform API response for single account
   static async getAccountById(accountId: string): Promise<Account> {
     const response = await apiClient.get(`/ACCOUNT/${accountId}`);
+    const acc = response.data.retrieveResponse[0];
 
-    // Single record retrieval returns the account in retrieveResponse
-    return response.data.retrieveResponse;
+    // Transform to match our interface
+    return {
+      id: acc.Id,
+      name: acc.Name,
+      status: acc.Status,
+      accountTypeId: acc.AccountTypeId || ''
+    };
   }
 }
