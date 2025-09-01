@@ -65,14 +65,18 @@ export default function ManageMembershipPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-aaa-blue">
           Manage Membership
         </h1>
         <div className="flex gap-2">
-          <Button variant="secondary">
-            Add New Product
+          <Button
+            variant="primary"
+            onClick={() => router.push(`/upgrade/${accountId}`)}
+            className="w-full"
+          >
+            Upgrade Membership
           </Button>
         </div>
       </div>
@@ -129,19 +133,6 @@ export default function ManageMembershipPage() {
               No billing profiles found
             </p>
           </div>
-        </div>
-      </Card>
-
-      {/* Actions */}
-      <Card title="Quick Actions">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button
-            variant="primary"
-            onClick={() => router.push(`/upgrade/${accountId}`)}
-            className="w-full"
-          >
-            Upgrade Membership
-          </Button>
         </div>
       </Card>
     </div>

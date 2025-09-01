@@ -16,7 +16,7 @@ function SaleSteps() {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       {/* Progress Steps */}
       <div className="mb-8">
         <div className="flex items-center justify-center">

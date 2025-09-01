@@ -67,7 +67,7 @@ export default function SearchMembersPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
       <div>
         <h1 className="text-3xl font-bold text-aaa-blue mb-2">
           Search Members

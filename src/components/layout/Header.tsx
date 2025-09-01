@@ -73,16 +73,21 @@ export function Header() {
   };
 
   return (
-    <header className="bg-[#004b87] border-b border-gray-200 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center">
-              <Logo className="h-8 w-auto text-white" />
-              <span className="ml-3 text-white text-sm">Customer Service Portal</span>
-            </Link>
-          </div>
-          <div className="flex-1 max-w-md mx-8" ref={searchRef}>
+    <header className="relative bg-[#004b87] border-b border-gray-200 shadow-sm">
+      <div className="h-16">
+        {/* Logo: absolute left */}
+        <div className="absolute inset-y-0 left-10 flex items-center">
+          <Link href="/" className="flex items-center">
+            <Logo className="h-8 w-auto text-white" />
+            <span className="ml-3 text-white text-sm">
+          Customer Service Portal
+        </span>
+          </Link>
+        </div>
+
+        {/* Search bar: centered */}
+        <div className="absolute inset-y-0 left-0 right-0 flex justify-center items-center">
+          <div className="w-full max-w-md" ref={searchRef}>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="w-4 h-4 text-gray-400" />
@@ -95,14 +100,12 @@ export function Header() {
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               />
 
-              {/* Loading indicator */}
               {isSearching && (
                 <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900" />
                 </div>
               )}
 
-              {/* Search Results Dropdown */}
               {showDropdown && searchResults.length > 0 && (
                 <div className="absolute z-50 mt-1 w-full bg-white rounded-md shadow-lg max-h-60 overflow-auto">
                   <ul className="py-1">
@@ -121,9 +124,7 @@ export function Header() {
                               Name: {account.name} • Status: {account.status}
                             </p>
                           </div>
-                          <span className="text-xs text-blue-600">
-                            View →
-                          </span>
+                          <span className="text-xs text-blue-600">View →</span>
                         </div>
                       </li>
                     ))}
@@ -132,28 +133,30 @@ export function Header() {
               )}
             </div>
           </div>
+        </div>
 
-          {/* Primary Action Buttons */}
-          <div className="flex items-center gap-4">
-            {pathname !== '/new-member' && pathname !== '/new-sale' && (
-              <Link href="/new-sale">
-                <Button
-                  variant="secondary"
-                  className="bg-white text-[#004b87] hover:bg-gray-100 font-semibold"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span className="ml-2">New Sale</span>
-                </Button>
-              </Link>
-            )}
-
-            {/* Quick Actions */}
-            <Link href="/manage">
-              <Button variant="danger" className="text-white ">
-                <Users className="w-4 h-4" />
-                <span className="ml-2">Get Roadside Assistance</span>
+        {/* User Info and Actions: absolute right */}
+        <div className="absolute inset-y-0 right-10 flex items-center gap-4">
+          {pathname !== '/new-member' && pathname !== '/new-sale' && (
+            <Link href="/new-sale">
+              <Button
+                variant="secondary"
+                className="bg-white text-[#004b87] hover:bg-gray-100 font-semibold"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span className="ml-2">New Sale</span>
               </Button>
             </Link>
+          )}
+
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-[#FDB913] rounded-full flex items-center justify-center">
+              <span className="text-[#004b87] font-semibold text-sm">DP</span>
+            </div>
+            <div className="hidden md:block text-left">
+              <p className="text-sm font-medium text-white">Debbie P.</p>
+              <p className="text-xs text-gray-300">Sales Agent</p>
+            </div>
           </div>
         </div>
       </div>
