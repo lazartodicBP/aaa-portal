@@ -8,10 +8,8 @@ export const apiClient = axios.create({
   },
 });
 
-// Request interceptor to add session ID
 apiClient.interceptors.request.use(
   async (config) => {
-    // Ensure we have a session
     const sessionId = await AuthService.ensureSession();
 
     if (sessionId) {
@@ -25,7 +23,6 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor for error handling
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -36,10 +33,8 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        // Clear the old session
         AuthService.clearSession();
 
-        // Get a new session
         const sessionId = await AuthService.ensureSession();
 
         if (sessionId) {
@@ -52,7 +47,6 @@ apiClient.interceptors.response.use(
       }
     }
 
-    // Log the error but don't redirect
     if (error.response?.data?.message === 'Invalid session ID') {
       console.error('Invalid session ID, will retry on next request');
       AuthService.clearSession();

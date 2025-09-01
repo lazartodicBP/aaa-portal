@@ -62,4 +62,36 @@ export class AccountService {
     });
     return response.data.brmObjects[0];
   }
+
+  static async getAccountByName(accountName: string): Promise<Account | null> {
+    const response = await apiClient.get('/ACCOUNT', {
+      params: {
+        queryAnsiSql: `Name='${accountName}'`
+      }
+    });
+
+    // The API returns an array in retrieveResponse
+    const accounts = response.data.retrieveResponse;
+
+    // Return the first account if found, otherwise null
+    return accounts && accounts.length > 0 ? accounts[0] : null;
+  }
+
+  static async getAccountsByName(accountName: string): Promise<Account[]> {
+    const response = await apiClient.get('/ACCOUNT', {
+      params: {
+        queryAnsiSql: `Name='${accountName}'`
+      }
+    });
+
+    // The API returns an array in retrieveResponse
+    return response.data.retrieveResponse || [];
+  }
+
+  static async getAccountById(accountId: string): Promise<Account> {
+    const response = await apiClient.get(`/ACCOUNT/${accountId}`);
+
+    // Single record retrieval returns the account in retrieveResponse
+    return response.data.retrieveResponse;
+  }
 }

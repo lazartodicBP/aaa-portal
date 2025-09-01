@@ -18,7 +18,7 @@ export interface BillingProfile {
   country: string;
   email: string;
   currencyCode: string;
-  billingCycle: 'MONTHLY' | 'ANNUAL';
+  billingCycle: 'MONTHLY' | 'YEARLY';
   paymentTermDays: number;
   billingMethod: 'MAIL' | 'EMAIL';
   invoiceDeliveryMethod: 'EMAIL' | 'MAIL';
@@ -31,7 +31,7 @@ export interface Product {
   ratingMethodType: string;
   price: number;
   rate: string; // Original rate string with $
-  billingCycle: 'MONTHLY' | 'ANNUAL';
+  subscriptionCycle: 'MONTHLY' | 'YEARLY';
   membershipLevel: 'CLASSIC' | 'PLUS' | 'PREMIER';
   displayName: string;
   productType?: string;
