@@ -63,7 +63,7 @@ export function HostedPaymentForm({
 
   // Initialize HPP when script is loaded and all dependencies are ready
   useEffect(() => {
-    if (!isScriptLoaded || !token || !accountId || !product || initializationRef.current) {
+    if (!isScriptLoaded || !token || initializationRef.current) {
       console.log('HPP initialization waiting for:', {
         isScriptLoaded,
         token: !!token,
@@ -131,11 +131,10 @@ export function HostedPaymentForm({
           {
             successCapture: (response: any) => {
               console.log('Payment successful:', response);
-              onSuccess?.();
+              // Create account product
             },
             error: (error: Error) => {
               console.error("HPP error:", error.message);
-              onError?.(error.message);
             }
           }
         );
@@ -151,7 +150,7 @@ export function HostedPaymentForm({
     return () => {
       clearTimeout(initTimer);
     };
-  }, [isScriptLoaded, token, accountId, product, billingProfileId, onError, onSuccess, onInitialized]);
+  }, [isScriptLoaded, token, billingProfileId, onError, onSuccess, onInitialized]);
 
   // Cleanup on unmount
   useEffect(() => {
