@@ -3,6 +3,7 @@
 import React from 'react';
 import { SaleProvider } from '@/context/SaleContext';
 import { MembershipSelector } from '@/components/new-sale/MembershipSelector';
+import { AccountCreation } from '@/components/new-sale/AccountCreation';
 import { PaymentSetup } from '@/components/new-sale/PaymentSetup';
 import { CheckCircle } from 'lucide-react';
 import { useSale } from '@/context/SaleContext';
@@ -12,7 +13,8 @@ function SaleSteps() {
 
   const steps = [
     { number: 1, title: 'Select Membership' },
-    { number: 2, title: 'Payment & Information' },
+    { number: 2, title: 'Create Account' },
+    { number: 3, title: 'Payment' },
   ];
 
   return (
@@ -57,7 +59,8 @@ function SaleSteps() {
       {/* Step Content */}
       <div>
         {state.step === 1 && <MembershipSelector />}
-        {state.step === 2 && <PaymentSetup />}
+        {state.step === 2 && <AccountCreation />}
+        {state.step === 3 && <PaymentSetup />}
       </div>
     </div>
   );

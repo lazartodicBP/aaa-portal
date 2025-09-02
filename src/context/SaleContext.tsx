@@ -2,22 +2,31 @@
 
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 
+interface Account {
+  id: string;
+  name: string;
+  billingProfileId?: string;
+}
+
 interface SaleState {
   selectedProduct: any;
   promoCode: string | null;
   step: number;
+  account: Account | null;
 }
 
 type Action =
   | { type: 'SET_PRODUCT'; payload: any }
   | { type: 'SET_PROMO_CODE'; payload: string | null }
   | { type: 'SET_STEP'; payload: number }
+  | { type: 'SET_ACCOUNT'; payload: Account }
   | { type: 'RESET' };
 
 const initialState: SaleState = {
   selectedProduct: null,
   promoCode: null,
   step: 1,
+  account: null,
 };
 
 const SaleContext = createContext<{
@@ -33,6 +42,8 @@ function saleReducer(state: SaleState, action: Action): SaleState {
       return { ...state, promoCode: action.payload };
     case 'SET_STEP':
       return { ...state, step: action.payload };
+    case 'SET_ACCOUNT':
+      return { ...state, account: action.payload };
     case 'RESET':
       return initialState;
     default:

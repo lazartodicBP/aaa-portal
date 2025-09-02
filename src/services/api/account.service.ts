@@ -2,54 +2,87 @@ import { apiClient } from './client';
 import { Account, BillingProfile, AccountProduct } from './types';
 
 export class AccountService {
-  static async createAccount(account: Omit<Account, 'id'>): Promise<Account> {
-    const response = await apiClient.post('/account', {
+  static async createAccount(name: string): Promise<Account> {
+    const response = await apiClient.post('/ACCOUNT', {
       brmObjects: [{
-        Name: account.name,
+        Name: name,
         Status: 'ACTIVE',
-        AccountTypeId: '681'
+        AccountTypeId: '681'  // Member account type
       }]
     });
-    return response.data.brmObjects[0];
+
+    // @ts-ignore
+    const createdAccount = response.createResponse[0].Id;
+
+    // Transform the response to match our interface
+    return {
+      id: createdAccount.Id,
+      name: createdAccount.Name,
+      status: createdAccount.Status,
+      accountTypeId: createdAccount.AccountTypeId || '681',
+      accountType: 'Member'
+    };
   }
 
-  static async createBillingProfile(profile: Omit<BillingProfile, 'id'>): Promise<BillingProfile> {
-    const response = await apiClient.post('/billing_profile', {
+  static async createBillingProfile(profile: Pick<BillingProfile, 'accountId' | 'billTo' | 'address1' | 'city' | 'state' | 'zip' | 'country' | 'email'>): Promise<BillingProfile> {
+    const response = await apiClient.post('/BILLING_PROFILE', {
       brmObjects: [{
-        AccountIdObj: { ExtAcctId: profile.accountId },
+        AccountId: profile.accountId,
         BillTo: profile.billTo,
-        Attention: profile.attention,
         Address1: profile.address1,
-        Address2: profile.address2,
-        City: profile.city,
-        Country: profile.country,
-        State: profile.state,
-        ZIP: profile.zip,
-        ActivityTimeZone: 'US/Central',
-        TimeZoneIdObj: { Tzname: 'US/Central' },
-        CurrencyCode: profile.currencyCode,
+        City: profile.city || '',
+        State: profile.state || '',
+        Zip: profile.zip || '',
+        Country: profile.country || '',
+        Email: profile.email,
+        // Hardcoded fields
+        BillingCycle: 'MONTHLY',
+        BillingCloseDate: '31',
+        PaymentTermDays: '30',
         MonthlyBillingDate: '31',
         ManualCloseFlag: '1',
-        InvoiceDeliveryMethod: profile.invoiceDeliveryMethod,
+        InvoiceTemplateId: '122',
+        InvoiceDeliveryMethod: 'EMAIL',
         InvoiceApprovalFlag: '1',
-        BillingCycle: profile.billingCycle,
-        PaymentTermDays: profile.paymentTermDays.toString(),
-        BillingMethod: profile.billingMethod,
-        Email: profile.email
+        BillingMethod: 'MAIL',
+        TimeZoneId: '351',
+        CurrencyCode: 'USD',
+        ActivityTimeZone: 'US/Pacific'
       }]
     });
-    return response.data.brmObjects[0];
+
+    const createdProfile = response.data.brmObjects[0];
+
+    // Transform the response to match our interface
+    return {
+      id: createdProfile.Id,
+      accountId: createdProfile.AccountId,
+      billTo: createdProfile.BillTo,
+      attention: createdProfile.Attention,
+      address1: createdProfile.Address1,
+      address2: createdProfile.Address2,
+      city: createdProfile.City,
+      state: createdProfile.State,
+      zip: createdProfile.ZIP || createdProfile.Zip,
+      country: createdProfile.Country,
+      email: createdProfile.Email,
+      currencyCode: createdProfile.CurrencyCode,
+      billingCycle: createdProfile.BillingCycle,
+      paymentTermDays: parseInt(createdProfile.PaymentTermDays) || 30,
+      billingMethod: createdProfile.BillingMethod === 'Electronic Payment' ? 'EMAIL' : 'MAIL',
+      invoiceDeliveryMethod: createdProfile.InvoiceDeliveryMethod
+    };
   }
 
   static async createAccountProduct(product: Omit<AccountProduct, 'id'>): Promise<AccountProduct> {
-    const response = await apiClient.patch('/ACCOUNT_PRODUCT', {
+    const response = await apiClient.post('/ACCOUNT_PRODUCT', {
       brmObjects: [{
-        AccountIdObj: { Id: product.accountId },
-        Quantity: product.quantity.toString(),
+        AccountId: product.accountId,
+        Quantity: '1',
         StartDate: product.startDate,
         EndDate: product.endDate || '',
         ProductId: product.productId,
-        Status: product.status
+        Status: 'ACTIVE'
       }]
     });
     return response.data.brmObjects[0];

@@ -6,7 +6,6 @@ interface AccountNameFormProps {
   setAccountName: (name: string) => void;
   nameError: string | null;
   setNameError: (error: string | null) => void;
-  onContinue: () => void;
 }
 
 export function AccountNameForm({
@@ -14,7 +13,6 @@ export function AccountNameForm({
                                   setAccountName,
                                   nameError,
                                   setNameError,
-                                  onContinue
                                 }: AccountNameFormProps) {
   return (
     <div className="bg-white p-6 rounded-lg shadow-md mb-6">
@@ -41,14 +39,6 @@ export function AccountNameForm({
             <p className="mt-1 text-sm text-red-600">{nameError}</p>
           )}
         </div>
-
-        <Button
-          variant="primary"
-          onClick={onContinue}
-          className="w-full"
-        >
-          Continue to Payment
-        </Button>
       </div>
     </div>
   );

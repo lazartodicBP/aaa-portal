@@ -46,7 +46,7 @@ export interface AccountProduct {
   quantity: number;
   startDate: string;
   endDate?: string;
-  status: 'ACTIVE' | 'INACTIVE';
+  status: 'ACTIVE' | 'DEACTIVATED';
 }
 
 export interface PromoCode {
