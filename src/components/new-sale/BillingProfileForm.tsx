@@ -157,7 +157,6 @@ export function BillingProfileForm({
               onChange={(e) => handleChange('country', e.target.value)}
               className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-aaa-blue border-gray-300"
               placeholder="USA"
-              defaultValue="USA"
             />
           </div>
         </div>

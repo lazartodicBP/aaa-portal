@@ -75,7 +75,7 @@ export function HostedPaymentForm({
 
   // Initialize HPP when script is loaded and all dependencies are ready
   useEffect(() => {
-    if (!isScriptLoaded || !token || !accountName || !product || initializationRef.current || !accountTypeId) {
+    if (!isScriptLoaded || !token || !accountName || !product || initializationRef.current) {
       return;
     }
 
@@ -110,41 +110,6 @@ export function HostedPaymentForm({
         },
       ];
 
-
-      const accountRequest = JSON.stringify({
-        name: accountName,
-        description: `AAA ${product.membershipLevel} Membership`,
-        additionalFields: additionalFields,
-        billingProfileRequest: {
-          additionalFields: [
-            {
-              key: "CurrencyCode",
-              value: "USD"
-            },
-            {
-              key: "BillTo",
-              value: accountName
-            },
-            {
-              key: "Address1",
-              value: "1234 Main St"
-            },
-            {
-              key: "Zip",
-              value: "12345"
-            },
-            {
-              key: "State",
-              value: "AL"
-            },
-            {
-              key: "AccountTypeId",
-              value: accountTypeId
-            }
-          ]
-        }
-      });
-
       try {
         console.log('Initializing HPP with AccountTypeId:', accountTypeId || 'Not set');
 
@@ -163,7 +128,6 @@ export function HostedPaymentForm({
             amount: product.price,
             targetSelector: "#payment-form",
             apiUrl: process.env.NEXT_PUBLIC_HPP_URL,
-            accountRequest: accountRequest,
             // Optional parameters
             countryCode: "US",
             walletMode: false,

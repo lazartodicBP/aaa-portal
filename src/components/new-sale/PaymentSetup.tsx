@@ -129,17 +129,7 @@ export function PaymentSetup() {
       {/* Selected Membership Summary */}
       <MembershipSummary product={state.selectedProduct} />
 
-      {/* Account Name Form */}
-      {!isHPPInitialized && (
-        <AccountNameForm
-          accountName={accountName}
-          setAccountName={setAccountName}
-          nameError={nameError}
-          setNameError={setNameError}
-          onContinue={handleContinueToPayment}
-        />
-      )}
-
+      HPP INITIALIZED: {isHPPInitialized}
       {/* HPP Form Container - Only show after account name is provided */}
       {isHPPInitialized && token && (
         <HostedPaymentForm
