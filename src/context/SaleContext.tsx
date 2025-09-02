@@ -1,18 +1,14 @@
 'use client';
 
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-
-interface Account {
-  id: string;
-  name: string;
-  billingProfileId?: string;
-}
+import { Account, BillingProfile } from '@/services/api/types';
 
 interface SaleState {
   selectedProduct: any;
   promoCode: string | null;
   step: number;
   account: Account | null;
+  billingProfile: BillingProfile | null;
 }
 
 type Action =
@@ -20,6 +16,8 @@ type Action =
   | { type: 'SET_PROMO_CODE'; payload: string | null }
   | { type: 'SET_STEP'; payload: number }
   | { type: 'SET_ACCOUNT'; payload: Account }
+  | { type: 'SET_BILLING_PROFILE'; payload: BillingProfile }
+  | { type: 'SET_ACCOUNT_AND_BILLING'; payload: { account: Account; billingProfile: BillingProfile } }
   | { type: 'RESET' };
 
 const initialState: SaleState = {
@@ -27,6 +25,7 @@ const initialState: SaleState = {
   promoCode: null,
   step: 1,
   account: null,
+  billingProfile: null,
 };
 
 const SaleContext = createContext<{
@@ -44,6 +43,14 @@ function saleReducer(state: SaleState, action: Action): SaleState {
       return { ...state, step: action.payload };
     case 'SET_ACCOUNT':
       return { ...state, account: action.payload };
+    case 'SET_BILLING_PROFILE':
+      return { ...state, billingProfile: action.payload };
+    case 'SET_ACCOUNT_AND_BILLING':
+      return {
+        ...state,
+        account: action.payload.account,
+        billingProfile: action.payload.billingProfile
+      };
     case 'RESET':
       return initialState;
     default:

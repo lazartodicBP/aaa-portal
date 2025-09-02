@@ -210,7 +210,8 @@ export class AccountService {
       billingCycle: profile.BillingCycle,
       paymentTermDays: parseInt(profile.PaymentTermDays) || 30,
       billingMethod: profile.BillingMethod,
-      invoiceDeliveryMethod: profile.InvoiceDeliveryMethod
+      invoiceDeliveryMethod: profile.InvoiceDeliveryMethod,
+      hostedPaymentPageExternalId: profile.HostedPaymentPageExternalId || '',
     };
   }
 

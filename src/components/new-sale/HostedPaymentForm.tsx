@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AccountService } from '@/services/api/account.service';
 
 declare global {
   interface Window {
@@ -9,8 +8,11 @@ declare global {
 
 interface HostedPaymentFormProps {
   token: string;
+  accountId: string;
   accountName: string;
   product: any;
+  billingProfileId?: string;
+  hostedPaymentPageExternalId?: string;
   onError?: (error: string) => void;
   onSuccess?: () => void;
   onInitialized?: () => void;
@@ -18,32 +20,18 @@ interface HostedPaymentFormProps {
 
 export function HostedPaymentForm({
                                     token,
+                                    accountId,
                                     accountName,
                                     product,
+                                    billingProfileId,
+                                    hostedPaymentPageExternalId,
                                     onError,
                                     onSuccess,
                                     onInitialized
                                   }: HostedPaymentFormProps) {
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
-  const [accountTypeId, setAccountTypeId] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
   const initializationRef = useRef(false);
-
-  // Fetch AccountTypeId for 'Member' type
-  useEffect(() => {
-    const fetchAccountTypeId = async () => {
-      try {
-        // Get the ID for 'Member' account type
-        const typeId = await AccountService.getAccountType('Member');
-        setAccountTypeId(typeId || '');
-      } catch (error) {
-        console.error('Error fetching account type ID:', error);
-        setAccountTypeId(''); // Default to empty if not found
-      }
-    };
-
-    fetchAccountTypeId();
-  }, []);
 
   // Load HPP script
   useEffect(() => {
@@ -75,7 +63,14 @@ export function HostedPaymentForm({
 
   // Initialize HPP when script is loaded and all dependencies are ready
   useEffect(() => {
-    if (!isScriptLoaded || !token || !accountName || !product || initializationRef.current) {
+    if (!isScriptLoaded || !token || !accountId || !product || initializationRef.current) {
+      console.log('HPP initialization waiting for:', {
+        isScriptLoaded,
+        token: !!token,
+        accountId,
+        product: !!product,
+        alreadyInitialized: initializationRef.current
+      });
       return;
     }
 
@@ -102,16 +97,14 @@ export function HostedPaymentForm({
       // Clear any existing content
       containerRef.current.innerHTML = '';
 
-      // Prepare the account request with AccountTypeId if available
-      const additionalFields = [
-        {
-          key: "ProductId",
-          value: product.id
-        },
-      ];
-
       try {
-        console.log('Initializing HPP with AccountTypeId:', accountTypeId || 'Not set');
+        console.log('Initializing HPP with:', {
+          accountId,
+          accountName,
+          productId: product.id,
+          billingProfileId,
+          amount: product.price
+        });
 
         window.HostedPayments.renderPaymentForm(
           {
@@ -128,6 +121,7 @@ export function HostedPaymentForm({
             amount: product.price,
             targetSelector: "#payment-form",
             apiUrl: process.env.NEXT_PUBLIC_HPP_URL,
+            billingProfileId: hostedPaymentPageExternalId,
             // Optional parameters
             countryCode: "US",
             walletMode: false,
@@ -135,12 +129,13 @@ export function HostedPaymentForm({
             currencyCode: "USD"
           },
           {
-            successCapture: () => {
-              console.log('Payment successful');
-              // onSuccess?.();
+            successCapture: (response: any) => {
+              console.log('Payment successful:', response);
+              onSuccess?.();
             },
             error: (error: Error) => {
-              console.warn("HPP error:", error.message);
+              console.error("HPP error:", error.message);
+              onError?.(error.message);
             }
           }
         );
@@ -156,7 +151,7 @@ export function HostedPaymentForm({
     return () => {
       clearTimeout(initTimer);
     };
-  }, [isScriptLoaded, token, accountName, product, accountTypeId, onError, onSuccess, onInitialized]);
+  }, [isScriptLoaded, token, accountId, product, billingProfileId, onError, onSuccess, onInitialized]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -168,21 +163,22 @@ export function HostedPaymentForm({
     };
   }, []);
 
-  return (
-    <>
-      <div className="bg-gray-50 p-4 rounded-lg mb-4">
-        <p className="text-sm text-gray-600">
-          <span className="font-medium">Account Name:</span> {accountName}
-        </p>
-        <p className="text-sm text-gray-600">
-          <span className="font-medium">Membership Type:</span> {product.membershipLevel}
-        </p>
+  if (!isScriptLoaded) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-md min-h-[400px] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-aaa-blue mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading payment system...</p>
+        </div>
       </div>
-      <div
-        id="payment-form"
-        ref={containerRef}
-        className="bg-white p-6 rounded-lg shadow-md min-h-[400px]"
-      />
-    </>
+    );
+  }
+
+  return (
+    <div
+      id="payment-form"
+      ref={containerRef}
+      className="bg-white p-6 rounded-lg shadow-md min-h-[400px]"
+    />
   );
 }

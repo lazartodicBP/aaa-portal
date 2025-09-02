@@ -5,6 +5,7 @@ import { AccountNameForm } from './AccountNameForm';
 import { BillingProfileForm } from './BillingProfileForm';
 import { AccountService } from '@/services/api/account.service';
 import { useSale } from '@/context/SaleContext';
+import {Account, BillingProfile} from "@/services/api/types";
 
 export function AccountCreation() {
   const { state, dispatch } = useSale();
@@ -72,11 +73,13 @@ export function AccountCreation() {
 
     try {
       // Create account
-      const account = await AccountService.createAccount( accountName );
+      const account = await AccountService.createAccount(accountName);
 
       if (!account || !account.id) {
         throw new Error('Failed to create account');
       }
+
+      console.log('Account created:', account);
 
       // Create billing profile
       const billingProfile = await AccountService.createBillingProfile({
@@ -87,20 +90,28 @@ export function AccountCreation() {
         state: billingDetails.state,
         zip: billingDetails.zip,
         country: billingDetails.country,
-        email: billingDetails.email
+        email: billingDetails.email,
       });
 
       if (!billingProfile || !billingProfile.id) {
         throw new Error('Failed to create billing profile');
       }
 
-      // Store account and billing profile info in context
+      console.log('Billing profile created:', billingProfile);
+
+      // Store both account and billing profile in context
+      // We've validated that both IDs exist, so we can safely assert they're defined
       dispatch({
-        type: 'SET_ACCOUNT',
+        type: 'SET_ACCOUNT_AND_BILLING',
         payload: {
-          id: account.id,
-          name: accountName,
-          billingProfileId: billingProfile.id
+          account: {
+            ...account,
+            id: account.id! // We know this exists from validation above
+          } as Account,
+          billingProfile: {
+            ...billingProfile,
+            id: billingProfile.id! // We know this exists from validation above
+          } as BillingProfile
         }
       });
 

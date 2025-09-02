@@ -23,6 +23,7 @@ export interface BillingProfile {
   paymentTermDays: number;
   billingMethod: 'MAIL' | 'EMAIL';
   invoiceDeliveryMethod: 'EMAIL' | 'MAIL';
+  hostedPaymentPageExternalId: string
 }
 
 export interface Product {

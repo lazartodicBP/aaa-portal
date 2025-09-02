@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
-import { AccountNameForm } from './AccountNameForm';
 import { MembershipSummary } from './MembershipSummary';
 import { HostedPaymentForm } from './HostedPaymentForm';
 import { useSale } from '@/context/SaleContext';
@@ -17,9 +16,6 @@ export function PaymentSetup() {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [accountName, setAccountName] = useState('');
-  const [nameError, setNameError] = useState<string | null>(null);
-  const [isHPPInitialized, setIsHPPInitialized] = useState(false);
 
   // Load token
   useEffect(() => {
@@ -45,40 +41,13 @@ export function PaymentSetup() {
     loadToken();
   }, []);
 
-  const handleContinueToPayment = () => {
-    // Validate account name
-    if (!accountName.trim()) {
-      setNameError('Please enter an account name');
-      return;
-    }
-
-    if (accountName.trim().length < 2) {
-      setNameError('Account name must be at least 2 characters');
-      return;
-    }
-
-    // Clear any previous errors
-    setNameError(null);
-
-    // Initialize HPP
-    setIsHPPInitialized(true);
-  };
-
   const handlePaymentError = (errorMessage: string) => {
     setError(errorMessage);
-    // Optionally reset the form
-    // setIsHPPInitialized(false);
   };
 
   const handlePaymentSuccess = () => {
     // Navigate to success page or next step
     router.push("/portal");
-  };
-
-  const handleReset = () => {
-    setIsHPPInitialized(false);
-    setAccountName('');
-    setError(null);
   };
 
   if (!state.selectedProduct) {
@@ -91,6 +60,38 @@ export function PaymentSetup() {
           className="mt-4"
         >
           Back to Membership Selection
+        </Button>
+      </div>
+    );
+  }
+
+  // Check if account has been created
+  if (!state.account || !state.account.id) {
+    return (
+      <div className="text-center">
+        <Alert variant="error" message="Please create an account first" />
+        <Button
+          variant="outline"
+          onClick={() => dispatch({ type: 'SET_STEP', payload: 2 })}
+          className="mt-4"
+        >
+          Back to Account Creation
+        </Button>
+      </div>
+    );
+  }
+
+  // Check if billing profile has been created
+  if (!state.billingProfile || !state.billingProfile.id) {
+    return (
+      <div className="text-center">
+        <Alert variant="error" message="Please complete billing information first" />
+        <Button
+          variant="outline"
+          onClick={() => dispatch({ type: 'SET_STEP', payload: 2 })}
+          className="mt-4"
+        >
+          Back to Account Creation
         </Button>
       </div>
     );
@@ -110,7 +111,7 @@ export function PaymentSetup() {
         <Alert variant="error" message={error || 'Payment system unavailable'} />
         <Button
           variant="outline"
-          onClick={() => dispatch({ type: 'SET_STEP', payload: 1 })}
+          onClick={() => dispatch({ type: 'SET_STEP', payload: 2 })}
           className="mt-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -129,34 +130,47 @@ export function PaymentSetup() {
       {/* Selected Membership Summary */}
       <MembershipSummary product={state.selectedProduct} />
 
-      HPP INITIALIZED: {isHPPInitialized}
-      {/* HPP Form Container - Only show after account name is provided */}
-      {isHPPInitialized && token && (
-        <HostedPaymentForm
-          token={token}
-          accountName={accountName}
-          product={state.selectedProduct}
-          onError={handlePaymentError}
-          onSuccess={handlePaymentSuccess}
-        />
-      )}
+      {/* Account Info Summary */}
+      <div className="bg-gray-50 p-4 rounded-lg mb-6">
+        <h3 className="font-semibold mb-2">Account Information</h3>
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">Account Name:</span> {state.account.name}
+        </p>
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">Account ID:</span> {state.account.id}
+        </p>
+        {state.billingProfile && (
+          <>
+            <p className="text-sm text-gray-600">
+              <span className="font-medium">Billing Email:</span> {state.billingProfile.email}
+            </p>
+            <p className="text-sm text-gray-600">
+              <span className="font-medium">Bill To:</span> {state.billingProfile.billTo}
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* HPP Form Container - Show immediately after account creation */}
+      <HostedPaymentForm
+        token={token}
+        accountId={state.account.id}
+        accountName={state.account.name}
+        product={state.selectedProduct}
+        billingProfileId={state.billingProfile.id}
+        hostedPaymentPageExternalId={state.billingProfile.hostedPaymentPageExternalId}
+        onError={handlePaymentError}
+        onSuccess={handlePaymentSuccess}
+      />
 
       {/* Back Button */}
       <div className="mt-6">
         <Button
           variant="outline"
-          onClick={() => {
-            if (isHPPInitialized) {
-              // Reset the form if HPP was initialized
-              handleReset();
-            } else {
-              // Go back to membership selection
-              dispatch({ type: 'SET_STEP', payload: 1 });
-            }
-          }}
+          onClick={() => dispatch({ type: 'SET_STEP', payload: 2 })}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          {isHPPInitialized ? 'Back to Account Information' : 'Back to Membership Selection'}
+          Back to Account Details
         </Button>
       </div>
     </div>
