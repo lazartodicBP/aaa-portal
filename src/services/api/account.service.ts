@@ -3,19 +3,18 @@ import { Account, BillingProfile, AccountProduct } from './types';
 
 export class AccountService {
   static async createAccount(account: Omit<Account, 'id'>): Promise<Account> {
-    const response = await apiClient.patch('/account', {
+    const response = await apiClient.post('/account', {
       brmObjects: [{
         Name: account.name,
-        Status: account.status,
-        AccountTypeId: account.accountTypeId
+        Status: 'ACTIVE',
+        AccountTypeId: '681'
       }]
     });
     return response.data.brmObjects[0];
   }
 
   static async createBillingProfile(profile: Omit<BillingProfile, 'id'>): Promise<BillingProfile> {
-    const response = await apiClient.patch('/billing_profile', {
-      externalIDFieldName: 'AccountId',
+    const response = await apiClient.post('/billing_profile', {
       brmObjects: [{
         AccountIdObj: { ExtAcctId: profile.accountId },
         BillTo: profile.billTo,
@@ -63,23 +62,10 @@ export class AccountService {
     return response.data.brmObjects[0];
   }
 
-  static async getAccountByName(accountName: string): Promise<Account | null> {
-    const response = await apiClient.get('/ACCOUNT', {
-      params: {
-        queryAnsiSql: `Name='${accountName}'`
-      }
-    });
-
-    // The API returns an array in retrieveResponse
-    const accounts = response.data.retrieveResponse;
-
-    // Return the first account if found, otherwise null
-    return accounts && accounts.length > 0 ? accounts[0] : null;
-  }
-
   static async getAccountsByName(accountName: string): Promise<Account[]> {
     const response = await apiClient.post('/query', {
-      sql: `SELECT Id, Name, Status FROM ACCOUNT WHERE UPPER(Name) LIKE UPPER('%${accountName}%')`
+      sql: `SELECT Id, Name, Status, AccountTypeId, AccountTypeIdObj.AccountType 
+            FROM ACCOUNT WHERE UPPER(Name) LIKE UPPER('%${accountName}%')`
     });
 
     // Transform the response to match our interface
@@ -88,21 +74,49 @@ export class AccountService {
       id: acc.Id,
       name: acc.Name,
       status: acc.Status,
-      accountTypeId: acc.AccountTypeId || ''
+      accountTypeId: acc.AccountTypeId || '',
+      accountType: acc['AccountTypeIdObj.AccountType'] || undefined
     }));
   }
 
-  // Transform API response for single account
-  static async getAccountById(accountId: string): Promise<Account> {
-    const response = await apiClient.get(`/ACCOUNT/${accountId}`);
-    const acc = response.data.retrieveResponse[0];
+  // Get account by ID with AccountType included
+  static async getAccountById(accountId: string): Promise<Account & { accountType?: string }> {
+    const response = await apiClient.post('/query', {
+      sql: `SELECT Id, Name, Status, AccountTypeId, AccountTypeIdObj.AccountType FROM ACCOUNT WHERE Id = '${accountId}'`
+    });
 
-    // Transform to match our interface
+    const accounts = response.data.queryResponse || [];
+
+    if (accounts.length === 0) {
+      throw new Error('Account not found');
+    }
+
+    const acc = accounts[0];
+
+    // Transform to match our interface and include accountType
     return {
       id: acc.Id,
       name: acc.Name,
       status: acc.Status,
-      accountTypeId: acc.AccountTypeId || ''
+      accountTypeId: acc.AccountTypeId || '',
+      accountType: acc['AccountTypeIdObj.AccountType'] || undefined
     };
+  }
+
+  // Get AccountTypeId by AccountType name
+  static async getAccountType(accountTypeName: string): Promise<string | null> {
+    const response = await apiClient.post('/query', {
+      sql: `SELECT Id FROM ACCOUNT_TYPE WHERE AccountType = '${accountTypeName}'`
+    });
+
+    const accountTypes = response.data.queryResponse || [];
+    console.log("Account types:", accountTypes);
+
+    if (accountTypes.length === 0) {
+      console.warn(`AccountType '${accountTypeName}' not found`);
+      return null;
+    }
+
+    return accountTypes[0].Id;
   }
 }

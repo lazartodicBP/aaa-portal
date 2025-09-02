@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { AccountService } from '@/services/api/account.service';
 
 declare global {
   interface Window {
@@ -24,8 +25,25 @@ export function HostedPaymentForm({
                                     onInitialized
                                   }: HostedPaymentFormProps) {
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [accountTypeId, setAccountTypeId] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
   const initializationRef = useRef(false);
+
+  // Fetch AccountTypeId for 'Member' type
+  useEffect(() => {
+    const fetchAccountTypeId = async () => {
+      try {
+        // Get the ID for 'Member' account type
+        const typeId = await AccountService.getAccountType('Member');
+        setAccountTypeId(typeId || '');
+      } catch (error) {
+        console.error('Error fetching account type ID:', error);
+        setAccountTypeId(''); // Default to empty if not found
+      }
+    };
+
+    fetchAccountTypeId();
+  }, []);
 
   // Load HPP script
   useEffect(() => {
@@ -57,7 +75,7 @@ export function HostedPaymentForm({
 
   // Initialize HPP when script is loaded and all dependencies are ready
   useEffect(() => {
-    if (!isScriptLoaded || !token || !accountName || !product || initializationRef.current) {
+    if (!isScriptLoaded || !token || !accountName || !product || initializationRef.current || !accountTypeId) {
       return;
     }
 
@@ -84,20 +102,19 @@ export function HostedPaymentForm({
       // Clear any existing content
       containerRef.current.innerHTML = '';
 
-      // Prepare the account request
+      // Prepare the account request with AccountTypeId if available
+      const additionalFields = [
+        {
+          key: "ProductId",
+          value: product.id
+        },
+      ];
+
+
       const accountRequest = JSON.stringify({
         name: accountName,
         description: `AAA ${product.membershipLevel} Membership`,
-        additionalFields: [
-          {
-            key: "MembershipType",
-            value: product.membershipLevel
-          },
-          {
-            key: "ProductId",
-            value: product.id
-          }
-        ],
+        additionalFields: additionalFields,
         billingProfileRequest: {
           additionalFields: [
             {
@@ -119,12 +136,18 @@ export function HostedPaymentForm({
             {
               key: "State",
               value: "AL"
+            },
+            {
+              key: "AccountTypeId",
+              value: accountTypeId
             }
           ]
         }
       });
 
       try {
+        console.log('Initializing HPP with AccountTypeId:', accountTypeId || 'Not set');
+
         window.HostedPayments.renderPaymentForm(
           {
             containerWidth: '100%',
@@ -134,12 +157,8 @@ export function HostedPaymentForm({
             securityToken: token,
             environmentId: process.env.NEXT_PUBLIC_BP_ENV_ID,
             paymentGateways: {
-              creditCard: {
-                gateway: "Adyen_CC"
-              },
-              directDebit: {
-                gateway: "Adyen_DD"
-              }
+              creditCard: { gateway: "Adyen_CC" },
+              directDebit: { gateway: "Adyen_DD" },
             },
             amount: product.price,
             targetSelector: "#payment-form",
@@ -153,10 +172,11 @@ export function HostedPaymentForm({
           },
           {
             successCapture: () => {
+              console.log('Payment successful');
               // onSuccess?.();
             },
             error: (error: Error) => {
-              console.warn("HPP bootstrap error:", error.message);
+              console.warn("HPP error:", error.message);
             }
           }
         );
@@ -172,7 +192,7 @@ export function HostedPaymentForm({
     return () => {
       clearTimeout(initTimer);
     };
-  }, [isScriptLoaded, token, accountName, product, onError, onSuccess, onInitialized]);
+  }, [isScriptLoaded, token, accountName, product, accountTypeId, onError, onSuccess, onInitialized]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -189,6 +209,9 @@ export function HostedPaymentForm({
       <div className="bg-gray-50 p-4 rounded-lg mb-4">
         <p className="text-sm text-gray-600">
           <span className="font-medium">Account Name:</span> {accountName}
+        </p>
+        <p className="text-sm text-gray-600">
+          <span className="font-medium">Membership Type:</span> {product.membershipLevel}
         </p>
       </div>
       <div

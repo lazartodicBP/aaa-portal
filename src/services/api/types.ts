@@ -3,6 +3,7 @@ export interface Account {
   name: string;
   status: string;
   accountTypeId: string;
+  accountType: string;
 }
 
 export interface BillingProfile {
