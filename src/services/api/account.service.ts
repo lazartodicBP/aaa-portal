@@ -1,5 +1,8 @@
 import { apiClient } from './client';
 import { Account, BillingProfile, AccountProduct } from './types';
+import { generateRandomNineDigitNumber } from "@/services/utils/utils";
+import { generateMemberID } from "@/services/utils/utils";
+
 
 export class AccountService {
   static async createAccount(name: string): Promise<Account> {
@@ -7,7 +10,15 @@ export class AccountService {
       brmObjects: [{
         Name: name,
         Status: 'ACTIVE',
-        AccountTypeId: '681'  // Member account type
+        AccountTypeId: '681',  //  Account type
+        aaa_MemberID: generateMemberID(),
+        aaa_MemberAcctType: "Primary", // Member account type
+        aaa_MemberCardNumber: generateRandomNineDigitNumber().toString(),
+        aaa_MemberFirstName: name,
+        aaa_MemberLastName: name,
+        aaa_MemberMiddleName: "0",
+        aaa_MemberRenewalMethod: "Autorenew",
+        aaa_MembershipBillFrequency: "Monthly"
       }]
     });
 
@@ -104,7 +115,10 @@ export class AccountService {
 
   static async getAccountsByName(accountName: string): Promise<Account[]> {
     const response = await apiClient.post('/query', {
-      sql: `SELECT Id, Name, Status, AccountTypeId, AccountTypeIdObj.AccountType
+      sql: `SELECT Id, Name, Status, AccountTypeId, AccountTypeIdObj.AccountType,
+                   aaa_MemberAcctType, aaa_MemberCardNumber, aaa_MemberFirstName,
+                   aaa_MemberLastName, aaa_MemberMiddleName, aaa_MemberRenewalMethod,
+                   aaa_MembershipBillFrequency
             FROM ACCOUNT WHERE UPPER(Name) LIKE UPPER('%${accountName}%')`
     });
 
@@ -116,54 +130,44 @@ export class AccountService {
       name: acc.Name,
       status: acc.Status,
       accountTypeId: acc.AccountTypeId || '',
-      accountType: acc['AccountTypeIdObj.AccountType'] || undefined
+      accountType: acc['AccountTypeIdObj.AccountType'] || '',
+      aaa_MemberAcctType: acc.aaa_MemberAcctType || 'Primary',
+      aaa_MemberCardNumber: acc.aaa_MemberCardNumber || '',
+      aaa_MemberFirstName: acc.aaa_MemberFirstName || '',
+      aaa_MemberLastName: acc.aaa_MemberLastName || '',
+      aaa_MemberMiddleName: acc.aaa_MemberMiddleName || '',
+      aaa_MemberRenewalMethod: acc.aaa_MemberRenewalMethod || 'Autorenew',
+      aaa_MembershipBillFrequency: acc.aaa_MembershipBillFrequency || 'Monthly'
     }));
   }
 
-  // Get account by ID with AccountType included
-  static async getAccountById(accountId: string): Promise<Account & { accountType?: string }> {
-    // First try the REST endpoint
-    try {
-      const response = await apiClient.get(`/ACCOUNT/${accountId}`);
+  // Get account by ID - NO FALLBACK, ONLY REST ENDPOINT
+  static async getAccountById(accountId: string): Promise<Account> {
+    const response = await apiClient.get(`/ACCOUNT/${accountId}`);
 
-      // Handle different possible response structures
-      const acc = response.retrieveResponse?.[0] || response.brmObjects?.[0] || response;
+    // Handle different possible response structures
+    const acc = response.retrieveResponse?.[0] || response.brmObjects?.[0] || response;
 
-      if (!acc || !acc.Id) {
-        throw new Error('Account not found');
-      }
-
-      // Transform to match our interface and include accountType
-      return {
-        id: acc.Id,
-        name: acc.Name,
-        status: acc.Status,
-        accountTypeId: acc.AccountTypeId || '',
-        accountType: acc['AccountTypeIdObj.AccountType'] || acc.AccountType || undefined
-      };
-    } catch (error) {
-      // Fallback to query if REST endpoint fails or doesn't return AccountType
-      console.log('Falling back to query for account details');
-      const response = await apiClient.post('/query', {
-        sql: `SELECT Id, Name, Status, AccountTypeId, AccountTypeIdObj.AccountType FROM ACCOUNT WHERE Id = '${accountId}'`
-      });
-
-      const accounts = response.queryResponse || [];
-
-      if (accounts.length === 0) {
-        throw new Error('Account not found');
-      }
-
-      const acc = accounts[0];
-
-      return {
-        id: acc.Id,
-        name: acc.Name,
-        status: acc.Status,
-        accountTypeId: acc.AccountTypeId || '',
-        accountType: acc['AccountTypeIdObj.AccountType'] || undefined
-      };
+    if (!acc || !acc.Id) {
+      throw new Error('Account not found');
     }
+
+    // Transform to match our interface including all AAA fields
+    return {
+      id: acc.Id,
+      name: acc.Name,
+      status: acc.Status,
+      accountTypeId: acc.AccountTypeId || '',
+      accountType: acc['AccountTypeIdObj.AccountType'] || acc.AccountType || '',
+      aaa_MemberID: acc.aaa_MemberID || '',
+      aaa_MemberAcctType: acc.aaa_MemberAcctType || '',
+      aaa_MemberCardNumber: acc.aaa_MemberCardNumber || '',
+      aaa_MemberFirstName: acc.aaa_MemberFirstName || '',
+      aaa_MemberLastName: acc.aaa_MemberLastName || '',
+      aaa_MemberMiddleName: acc.aaa_MemberMiddleName || '',
+      aaa_MemberRenewalMethod: acc.aaa_MemberRenewalMethod || '',
+      aaa_MembershipBillFrequency: acc.aaa_MembershipBillFrequency || ''
+    };
   }
 
   // Get AccountTypeId by AccountType name

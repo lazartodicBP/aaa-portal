@@ -4,6 +4,15 @@ export interface Account {
   status: string;
   accountTypeId: string;
   accountType: string;
+  aaa_MemberID: string;
+  aaa_MemberAcctType: string;          // Primary
+  aaa_MemberCardNumber: string;
+  aaa_MemberFirstName: string;
+  aaa_MemberLastName: string;
+  aaa_MemberMiddleName: string;
+  aaa_MemberRenewalMethod: string;     //"Autorenew"
+  aaa_MembershipBillFrequency: string; // "Monthly"
+
 }
 
 export interface BillingProfile {
