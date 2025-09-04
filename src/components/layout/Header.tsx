@@ -136,12 +136,12 @@ export function Header() {
         </div>
 
         {/* User Info and Actions: absolute right */}
-        <div className="absolute inset-y-0 right-10 flex items-center gap-4">
+        <div className="absolute inset-y-0 right-10 flex items-center 2xl:gap-96 xl:gap-20 md:gap-10">
           {pathname !== '/new-member' && pathname !== '/new-sale' && (
             <Link href="/new-sale">
               <Button
-                variant="secondary"
-                className="bg-white text-[#004b87] hover:bg-gray-100 font-semibold"
+                variant="primary"
+                className="text-[#004b87] hover:bg-gray-100 font-semibold hover:text-[#004b87]"
               >
                 <UserPlus className="w-4 h-4" />
                 <span className="ml-2">New Sale</span>

@@ -7,6 +7,7 @@ import { Alert } from '../ui/Alert';
 import { ProductService } from '@/services/api/product.service';
 import { Product } from '@/services/api/types';
 import { useSale } from '@/context/SaleContext';
+import { getMembershipBenefit } from '@/services/utils/membershipBenefits';
 import { CheckCircle, Car, Shield, Star } from 'lucide-react';
 
 export function MembershipSelector() {
@@ -61,60 +62,6 @@ export function MembershipSelector() {
       case 'PLUS': return <Shield className="w-8 h-8" />;
       case 'PREMIER': return <Star className="w-8 h-8" />;
       default: return null;
-    }
-  };
-
-  const getDescription = (level: string) => {
-    switch(level) {
-      case 'CLASSIC':
-        return {
-          tagline: 'Essential benefits for the road and beyond',
-          roadside: [
-            'Tows up to 3 miles',
-            '$60 toward locksmith parts and labor',
-            'Free emergency fuel delivery; member pays for fuel',
-            'Battery service and jump start',
-            'Flat tire service',
-            'Referral to AAA Approved Auto Repair facilities'
-          ],
-          benefits: [
-            'Free Hertz Gold® membership with enrollment',
-            'Free ID theft protection',
-            'AAA discounts on everyday purchases'
-          ]
-        };
-      case 'PLUS':
-        return {
-          tagline: 'Enhanced coverage with extended benefits',
-          roadside: [
-            '4 service calls, tows up to 100 miles each',
-            '$100 toward vehicle lockout services',
-            'Free emergency fuel and delivery'
-          ],
-          benefits: [
-            'Discount on passport photos',
-            'Discount on notary services',
-            'Free international AAA maps',
-            '20% CARFAX report discount'
-          ]
-        };
-      case 'PREMIER':
-        return {
-          tagline: 'Premium protection with maximum coverage',
-          roadside: [
-            '1 tow per household up to 200 miles, remaining tows up to 100 miles',
-            '$150 toward vehicle lockout services',
-            'Free emergency fuel and delivery'
-          ],
-          benefits: [
-            '1 free set of printed + digital passport photos per membership year',
-            'Free notary services',
-            '1-day complimentary standard rental car with in-territory tow',
-            '1 free CARFAX report per year and 40% discount on additional reports'
-          ]
-        };
-      default:
-        return null;
     }
   };
 
@@ -176,6 +123,9 @@ export function MembershipSelector() {
         {Object.entries(groupedProducts).map(([level, product]) => {
           if (!product) return null;
 
+          // Get benefits data from centralized source
+          const benefits = getMembershipBenefit(level);
+
           // Find corresponding monthly product for savings calculation
           const monthlyProduct = products.find(p =>
             p.name.toLowerCase().includes(level.toLowerCase()) &&
@@ -219,9 +169,9 @@ export function MembershipSelector() {
                   <div className={`
                     mt-2 text-aaa-blue text-xs font-semibold 
                     py-1 px-3 rounded-full inline-block
-                    ${level === 'PLUS' ? 'bg-aaa-yellow' : 'bg-transparent'}
+                    ${benefits?.popularTag ? 'bg-aaa-yellow' : 'bg-transparent'}
                   `}>
-                    <span className={level === 'PLUS' ? 'visible' : 'invisible'}>
+                    <span className={benefits?.popularTag ? 'visible' : 'invisible'}>
                       MOST POPULAR
                     </span>
                   </div>
@@ -243,9 +193,11 @@ export function MembershipSelector() {
                 </div>
 
                 {/* Tagline */}
-                <p className="text-sm font-semibold text-center text-gray-700 mb-4">
-                  {getDescription(level)?.tagline}
-                </p>
+                {benefits && (
+                  <p className="text-sm font-semibold text-center text-gray-700 mb-4">
+                    {benefits.tagline}
+                  </p>
+                )}
 
                 {/* Select Button */}
                 <button
@@ -266,33 +218,35 @@ export function MembershipSelector() {
                 </button>
 
                 {/* Detailed Benefits */}
-                <div className="space-y-4 text-sm">
-                  {/* Roadside Assistance */}
-                  <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Roadside Assistance</h4>
-                    <ul className="space-y-1">
-                      {getDescription(level)?.roadside.map((item, idx) => (
-                        <li key={idx} className="flex items-start text-gray-600">
-                          <span className="text-aaa-blue mr-2">•</span>
-                          <span className="text-xs">{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                {benefits && (
+                  <div className="space-y-4 text-sm">
+                    {/* Roadside Assistance */}
+                    <div>
+                      <h4 className="font-semibold text-gray-800 mb-2">Roadside Assistance</h4>
+                      <ul className="space-y-1">
+                        {benefits.roadsideAssistance.map((item, idx) => (
+                          <li key={idx} className="flex items-start text-gray-600">
+                            <span className="text-aaa-blue mr-2">•</span>
+                            <span className="text-xs">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
 
-                  {/* More Benefits */}
-                  <div className="pt-3 border-t border-gray-200">
-                    <h4 className="font-semibold text-gray-800 mb-2">More benefits</h4>
-                    <ul className="space-y-1">
-                      {getDescription(level)?.benefits.map((item, idx) => (
-                        <li key={idx} className="flex items-start text-gray-600">
-                          <span className="text-aaa-blue mr-2">•</span>
-                          <span className="text-xs">{item}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    {/* More Benefits */}
+                    <div className="pt-3 border-t border-gray-200">
+                      <h4 className="font-semibold text-gray-800 mb-2">More benefits</h4>
+                      <ul className="space-y-1">
+                        {benefits.additionalBenefits.map((item, idx) => (
+                          <li key={idx} className="flex items-start text-gray-600">
+                            <span className="text-aaa-blue mr-2">•</span>
+                            <span className="text-xs">{item}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </Card>
           );

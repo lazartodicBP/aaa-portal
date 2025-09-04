@@ -26,6 +26,7 @@ export interface BillingProfile {
   state: string;
   zip: string;
   country: string;
+  aaa_Email: string;
   email: string;
   currencyCode: string;
   billingCycle: 'MONTHLY' | 'YEARLY';
@@ -76,4 +77,12 @@ export interface UpgradeOption {
   originalProductName: string;
   destinationProductId: string;
   destinationProductName: string;
+}
+
+export interface MembershipBenefit {
+  level: 'CLASSIC' | 'PLUS' | 'PREMIER';
+  tagline: string;
+  roadsideAssistance: string[];
+  additionalBenefits: string[];
+  popularTag?: boolean;
 }

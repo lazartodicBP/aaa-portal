@@ -3,22 +3,35 @@ import { Account, BillingProfile, AccountProduct } from './types';
 import { generateRandomNineDigitNumber } from "@/services/utils/utils";
 import { generateMemberID } from "@/services/utils/utils";
 
-
 export class AccountService {
-  static async createAccount(name: string): Promise<Account> {
+  static async createAccount(
+    name: string,
+    options?: {
+      firstName?: string;
+      lastName?: string;
+      middleName?: string;
+      memberAcctType?: 'Primary' | 'Associate';
+      billFrequency?: 'Monthly' | 'Yearly';
+    }
+  ): Promise<Account> {
+    // Parse names from the account name if not provided
+    const nameParts = name.split(' ');
+    const firstName = options?.firstName || nameParts[0] || name;
+    const lastName = options?.lastName || nameParts.slice(1).join(' ') || name;
+
     const response = await apiClient.post('/ACCOUNT', {
       brmObjects: [{
         Name: name,
         Status: 'ACTIVE',
-        AccountTypeId: '681',  //  Account type
+        AccountTypeId: '681',  // Account type
         aaa_MemberID: generateMemberID(),
-        aaa_MemberAcctType: "Primary", // Member account type
+        aaa_MemberAcctType: options?.memberAcctType,
         aaa_MemberCardNumber: generateRandomNineDigitNumber().toString(),
-        aaa_MemberFirstName: name,
-        aaa_MemberLastName: name,
-        aaa_MemberMiddleName: "0",
+        aaa_MemberFirstName: firstName,
+        aaa_MemberLastName: lastName,
+        aaa_MemberMiddleName: options?.middleName || "0",
         aaa_MemberRenewalMethod: "Autorenew",
-        aaa_MembershipBillFrequency: "Monthly"
+        aaa_MembershipBillFrequency: options?.billFrequency || "Monthly"
       }]
     });
 
@@ -33,7 +46,11 @@ export class AccountService {
     return this.getAccountById(createdAccount.Id);
   }
 
-  static async createBillingProfile(profile: Pick<BillingProfile, 'accountId' | 'billTo' | 'address1' | 'city' | 'state' | 'zip' | 'country' | 'email'>): Promise<BillingProfile> {
+  static async createBillingProfile(
+    profile: Pick<BillingProfile, 'accountId' | 'billTo' | 'address1' | 'city' | 'state' | 'zip' | 'country' | 'aaa_Email' | 'email'> & {
+      billingCycle?: 'MONTHLY' | 'YEARLY';
+    }
+  ): Promise<BillingProfile> {
     const response = await apiClient.post('/BILLING_PROFILE', {
       brmObjects: [{
         AccountId: profile.accountId,
@@ -43,9 +60,10 @@ export class AccountService {
         State: profile.state || '',
         Zip: profile.zip || '',
         Country: profile.country || '',
+        aaa_Email: profile.aaa_Email,
         Email: profile.email,
-        // Hardcoded fields
-        BillingCycle: 'MONTHLY',
+        // Use the billingCycle from the profile if provided, otherwise default to MONTHLY
+        BillingCycle: profile.billingCycle,
         BillingCloseDate: '31',
         PaymentTermDays: '30',
         MonthlyBillingDate: '31',
@@ -116,7 +134,7 @@ export class AccountService {
   static async getAccountsByName(accountName: string): Promise<Account[]> {
     const response = await apiClient.post('/query', {
       sql: `SELECT Id, Name, Status, AccountTypeId, AccountTypeIdObj.AccountType,
-                   aaa_MemberAcctType, aaa_MemberCardNumber, aaa_MemberFirstName,
+                   aaa_MemberID, aaa_MemberAcctType, aaa_MemberCardNumber, aaa_MemberFirstName,
                    aaa_MemberLastName, aaa_MemberMiddleName, aaa_MemberRenewalMethod,
                    aaa_MembershipBillFrequency
             FROM ACCOUNT WHERE UPPER(Name) LIKE UPPER('%${accountName}%')`
@@ -131,6 +149,7 @@ export class AccountService {
       status: acc.Status,
       accountTypeId: acc.AccountTypeId || '',
       accountType: acc['AccountTypeIdObj.AccountType'] || '',
+      aaa_MemberID: acc.aaa_MemberID || '',
       aaa_MemberAcctType: acc.aaa_MemberAcctType || 'Primary',
       aaa_MemberCardNumber: acc.aaa_MemberCardNumber || '',
       aaa_MemberFirstName: acc.aaa_MemberFirstName || '',
@@ -209,7 +228,8 @@ export class AccountService {
       state: profile.State || '',
       zip: profile.ZIP || profile.Zip || '',
       country: profile.Country,
-      email: profile.Email,
+      aaa_Email: profile.aaa_Email,
+      email: profile.email,
       currencyCode: profile.CurrencyCode,
       billingCycle: profile.BillingCycle,
       paymentTermDays: parseInt(profile.PaymentTermDays) || 30,

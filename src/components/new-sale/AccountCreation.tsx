@@ -5,11 +5,17 @@ import { AccountNameForm } from './AccountNameForm';
 import { BillingProfileForm } from './BillingProfileForm';
 import { AccountService } from '@/services/api/account.service';
 import { useSale } from '@/context/SaleContext';
-import {Account, BillingProfile} from "@/services/api/types";
+import { Account, BillingProfile } from "@/services/api/types";
 
 export function AccountCreation() {
   const { state, dispatch } = useSale();
-  const [accountName, setAccountName] = useState('');
+
+  // Separate first and last name states
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [memberAcctType, setMemberAcctType] = useState<'Primary' | 'Associate'>('Primary');
+  const [billFrequency, setBillFrequency] = useState<'Monthly' | 'Yearly'>('Monthly');
+
   const [nameError, setNameError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,11 +34,13 @@ export function AccountCreation() {
   const validateForm = () => {
     const errors: Record<string, string> = {};
 
-    // Validate account name
-    if (!accountName.trim()) {
-      setNameError('Account name is required');
+    // Validate first and last name
+    if (!firstName.trim() || !lastName.trim()) {
+      setNameError('Both first name and last name are required');
       return false;
     }
+
+    setNameError(null);
 
     // Validate billing details
     if (!billingDetails.email.trim()) {
@@ -72,8 +80,19 @@ export function AccountCreation() {
     setError(null);
 
     try {
-      // Create account
-      const account = await AccountService.createAccount(accountName);
+      // Construct account name from first and last name
+      const accountName = `${firstName.trim()} ${lastName.trim()}`;
+
+      // Create account with the additional options
+      const account = await AccountService.createAccount(
+        accountName,
+        {
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          memberAcctType: memberAcctType,
+          billFrequency: billFrequency
+        }
+      );
 
       if (!account || !account.id) {
         throw new Error('Failed to create account');
@@ -81,7 +100,10 @@ export function AccountCreation() {
 
       console.log('Account created:', account);
 
-      // Create billing profile
+      // Map billing frequency to billing cycle format
+      const billingCycle = billFrequency === 'Monthly' ? 'MONTHLY' : 'YEARLY';
+
+      // Create billing profile with matching billing cycle
       const billingProfile = await AccountService.createBillingProfile({
         accountId: account.id,
         billTo: accountName,
@@ -91,6 +113,8 @@ export function AccountCreation() {
         zip: billingDetails.zip,
         country: billingDetails.country,
         email: billingDetails.email,
+        aaa_Email: billingDetails.email,
+        billingCycle: billingCycle
       });
 
       if (!billingProfile || !billingProfile.id) {
@@ -100,17 +124,16 @@ export function AccountCreation() {
       console.log('Billing profile created:', billingProfile);
 
       // Store both account and billing profile in context
-      // We've validated that both IDs exist, so we can safely assert they're defined
       dispatch({
         type: 'SET_ACCOUNT_AND_BILLING',
         payload: {
           account: {
             ...account,
-            id: account.id! // We know this exists from validation above
+            id: account.id!
           } as Account,
           billingProfile: {
             ...billingProfile,
-            id: billingProfile.id! // We know this exists from validation above
+            id: billingProfile.id!
           } as BillingProfile
         }
       });
@@ -137,10 +160,16 @@ export function AccountCreation() {
       )}
 
       <div className="space-y-6">
-        {/* Account Name Form */}
+        {/* Updated Account Name Form with new fields */}
         <AccountNameForm
-          accountName={accountName}
-          setAccountName={setAccountName}
+          firstName={firstName}
+          setFirstName={setFirstName}
+          lastName={lastName}
+          setLastName={setLastName}
+          memberAcctType={memberAcctType}
+          setMemberAcctType={setMemberAcctType}
+          billFrequency={billFrequency}
+          setBillFrequency={setBillFrequency}
           nameError={nameError}
           setNameError={setNameError}
         />
