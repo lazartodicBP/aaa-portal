@@ -5,12 +5,14 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'default' | 'bordered' | 'elevated' | 'flat';
   padding?: 'none' | 'sm' | 'md' | 'lg';
   interactive?: boolean;
+  header?: React.ReactNode; // Renamed from title to header to avoid conflict
 }
 
 export const Card: React.FC<CardProps> = ({
                                             variant = 'default',
                                             padding = 'md',
                                             interactive = false,
+                                            header,
                                             className,
                                             children,
                                             ...props
@@ -46,6 +48,13 @@ export const Card: React.FC<CardProps> = ({
       )}
       {...props}
     >
+      {header && (
+        <div className="pb-4 mb-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {header}
+          </h3>
+        </div>
+      )}
       {children}
     </div>
   );
@@ -118,11 +127,11 @@ export const CardFooter: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
                                                                              ...props
                                                                            }) => {
   return (
-    <head
+    <div
       className={clsx('pt-4 mt-4 border-t border-gray-200', className)}
       {...props}
     >
       {children}
-    </head>
+    </div>
   );
 };

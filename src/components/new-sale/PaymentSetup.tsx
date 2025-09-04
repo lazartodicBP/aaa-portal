@@ -46,8 +46,14 @@ export function PaymentSetup() {
   };
 
   const handlePaymentSuccess = () => {
-    // Navigate to success page or next step
-    router.push("/portal");
+    // Navigate to manage membership page with the account ID
+    alert(state.account?.id);
+    if (state.account?.id) {
+      router.push(`/manage-membership/${state.account.id}`);
+    } else {
+      // Fallback to portal if no account ID
+      router.push("/");
+    }
   };
 
   if (!state.selectedProduct) {
@@ -154,6 +160,22 @@ export function PaymentSetup() {
                 <span className="text-gray-600">Member ID:</span>
                 <span className="font-mono text-xs">{state.account.aaa_MemberID || state.account.id}</span>
               </div>
+              {state.billingProfile && (
+                <>
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Billing Email:</span>
+                      <span className="font-medium">{state.billingProfile.email}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Billing Address:</span>
+                      <span className="font-medium text-right">
+                        {state.billingProfile.city}, {state.billingProfile.state} {state.billingProfile.zip}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -199,18 +221,6 @@ export function PaymentSetup() {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Back Button - Full width at bottom */}
-      <div className="flex justify-center mt-6">
-        <Button
-          variant="outline"
-          onClick={() => dispatch({ type: 'RESET'})}
-          size="lg"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Account Details
-        </Button>
       </div>
     </div>
   );

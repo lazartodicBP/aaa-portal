@@ -168,4 +168,27 @@ export class ProductService {
 
     return product;
   }
+
+  // Get Account Products by Account ID
+  static async getAccountProductsByAccountId(accountId: string): Promise<AccountProduct[]> {
+    const response = await apiClient.post('/query', {
+      sql: `SELECT Id, AccountId, ProductId, Quantity, StartDate, EndDate, Status, BenefitSet
+            FROM ACCOUNT_PRODUCT
+            WHERE AccountId = '${accountId}'
+            ORDER BY StartDate DESC`
+    });
+
+    const products = response.queryResponse || [];
+
+    return products.map((product: any) => ({
+      id: product.Id,
+      accountId: product.AccountId,
+      productId: product.ProductId,
+      quantity: parseInt(product.Quantity) || 1,
+      startDate: product.StartDate,
+      endDate: product.EndDate || undefined,
+      status: product.Status,
+      benefitSet: product.BenefitSet
+    }));
+  }
 }

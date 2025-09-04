@@ -62,7 +62,7 @@ export class AccountService {
         aaa_Email: profile.aaa_Email,
         Email: profile.email,
         // Use the billingCycle from the profile if provided, otherwise default to MONTHLY
-        BillingCycle: profile.billingCycle,
+        BillingCycle: profile.billingCycle || 'MONTHLY',
         BillingCloseDate: '31',
         PaymentTermDays: '30',
         MonthlyBillingDate: '31',
@@ -164,7 +164,8 @@ export class AccountService {
     return accountTypes[0].Id;
   }
 
-  private static async getBillingProfileById(profileId: string): Promise<BillingProfile> {
+  // Get billing profile by ID
+  static async getBillingProfileById(profileId: string): Promise<BillingProfile> {
     const response = await apiClient.get(`/BILLING_PROFILE/${profileId}`);
 
     // Handle the retrieveResponse array structure
@@ -174,6 +175,30 @@ export class AccountService {
       throw new Error('Billing profile not found');
     }
 
+    return this.transformBillingProfile(profile);
+  }
+
+  // Get billing profile by Account ID
+  static async getBillingProfileByAccountId(accountId: string): Promise<BillingProfile> {
+    const response = await apiClient.post('/query', {
+      sql: `SELECT Id, AccountId, BillTo, Attention, Address1, Address2, City, State, Zip,
+                   Country, aaa_Email, Email, CurrencyCode, BillingCycle, PaymentTermDays,
+                   BillingMethod, InvoiceDeliveryMethod, HostedPaymentPageExternalId, Status
+            FROM BILLING_PROFILE
+            WHERE AccountId = '${accountId}' AND Status = 'ACTIVE'`
+    });
+
+    const profiles = response.queryResponse || [];
+
+    if (profiles.length === 0) {
+      throw new Error('No billing profile found for account');
+    }
+
+    return this.transformBillingProfile(profiles[0]);
+  }
+
+  // Helper method to transform billing profile response
+  private static transformBillingProfile(profile: any): BillingProfile {
     return {
       id: profile.Id,
       accountId: profile.AccountId,

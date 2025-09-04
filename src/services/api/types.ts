@@ -58,6 +58,7 @@ export interface AccountProduct {
   startDate: string;
   endDate?: string;
   status: 'ACTIVE' | 'DEACTIVATED';
+  benefitSet: string;
 }
 
 export interface PromoCode {
