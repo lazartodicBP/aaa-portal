@@ -1,5 +1,12 @@
 import { apiClient } from './client';
-import { Product, UpgradeOption } from './types';
+import { Product, AccountProduct, UpgradeOption } from './types';
+import {
+  determineBillingCycle,
+  determineMembershipLevel,
+  getBenefitSet,
+  getFormattedDate,
+  parsePrice
+} from "@/services/utils/utils";
 
 export class ProductService {
   static async getProducts(): Promise<Product[]> {
@@ -26,10 +33,10 @@ export class ProductService {
           name: p.Name,
           productId: p.Id,
           ratingMethodType: p.RatingMethodId,
-          price: this.parsePrice(p.Rate),
+          price: parsePrice(p.Rate),
           rate: p.Rate, // Keep original rate string
-          subscriptionCycle: this.determineBillingCycle(p.Name),
-          membershipLevel: this.determineMembershipLevel(p.Name),
+          subscriptionCycle: determineBillingCycle(p.Name),
+          membershipLevel: determineMembershipLevel(p.Name),
           displayName: p.aaa_DisplayName || p.Name,
           productType: p.aaa_ProductType,
           level: p.aaa_Level,
@@ -92,21 +99,73 @@ export class ProductService {
     return results;
   }
 
-  private static parsePrice(rate: string): number {
-    // Remove $ and parse to float
-    return parseFloat(rate?.replace('$', '') || '0') || 0;
+  // ========== ACCOUNT PRODUCT FUNCTIONS ==========
+
+  static async createAccountProduct(
+    accountId: string,
+    product: Product
+  ): Promise<AccountProduct> {
+    // Get today's date in YYYY-MM-DD format
+    const startDate = getFormattedDate(new Date());
+
+    // Get BenefitSet based on membership level
+    const benefitSet = getBenefitSet(product.membershipLevel);
+
+    const response = await apiClient.post('/ACCOUNT_PRODUCT', {
+      brmObjects: [{
+        AccountId: accountId,
+        Quantity: '1',
+        StartDate: startDate,
+        EndDate: '', // No end date for active subscription
+        ProductId: product.id,
+        Status: 'ACTIVE',
+        BenefitSet: benefitSet.toString()
+      }]
+    });
+
+    // Standardized response handling
+    const createdProduct = response.createResponse?.[0];
+
+    if (!createdProduct || !createdProduct.Id) {
+      throw new Error('Failed to create account product: Invalid response');
+    }
+
+    // If createResponse only has Id, fetch full details
+    if (!createdProduct.AccountId) {
+      return this.getAccountProductById(createdProduct.Id);
+    }
+
+    return createdProduct;
   }
 
-  private static determineMembershipLevel(productName: string): 'CLASSIC' | 'PLUS' | 'PREMIER' {
-    const name = productName?.toLowerCase() || '';
-    if (name.includes('premier')) return 'PREMIER';
-    if (name.includes('plus')) return 'PLUS';
-    return 'CLASSIC';
+  static async updateAccountProduct(
+    productId: string,
+    updates: Partial<AccountProduct>
+  ): Promise<AccountProduct> {
+    const response = await apiClient.patch(`/ACCOUNT_PRODUCT/${productId}`, {
+      brmObjects: [updates]
+    });
+
+    // Standardized response handling
+    const updatedProduct = response.updateResponse?.[0] || response.brmObjects?.[0];
+
+    if (!updatedProduct) {
+      throw new Error('Failed to update account product: Invalid response');
+    }
+
+    return updatedProduct;
   }
 
-  // Method to determine billing cycle from product name
-  private static determineBillingCycle(productName: string): 'MONTHLY' | 'YEARLY' {
-    const name = productName?.toLowerCase() || '';
-    return name.includes('annual') ? 'YEARLY' : 'MONTHLY';
+  static async getAccountProductById(productId: string): Promise<AccountProduct> {
+    const response = await apiClient.get(`/ACCOUNT_PRODUCT/${productId}`);
+
+    // Handle different possible response structures
+    const product = response.retrieveResponse?.[0] || response.brmObjects?.[0] || response;
+
+    if (!product || !product.Id) {
+      throw new Error('Account product not found');
+    }
+
+    return product;
   }
 }

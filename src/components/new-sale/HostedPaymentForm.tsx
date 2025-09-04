@@ -1,4 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { ProductService } from '@/services/api/product.service';
+import {getBenefitSet} from "@/services/utils/utils";
+import ActivatingMembershipModal from "@/components/new-sale/ActivatingMembershipModal";
 
 declare global {
   interface Window {
@@ -30,6 +33,7 @@ export function HostedPaymentForm({
                                     onInitialized
                                   }: HostedPaymentFormProps) {
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const initializationRef = useRef(false);
 
@@ -103,7 +107,9 @@ export function HostedPaymentForm({
           accountName,
           productId: product.id,
           billingProfileId,
-          amount: product.price
+          hostedPaymentPageExternalId,
+          amount: product.price,
+          benefitSet: getBenefitSet(product.membershipLevel)
         });
 
         window.HostedPayments.renderPaymentForm(
@@ -126,16 +132,39 @@ export function HostedPaymentForm({
             countryCode: "US",
             walletMode: false,
             allowEditPrice: false,
-            currencyCode: "USD"
+            currencyCode: "USD",
+            allowSavePaymentMethods: true
           },
           {
-            successCapture: (response: any) => {
-              console.log('Payment successful:', response);
-              // Create account product
+            successCapture: async (response: any) => {
+              console.log('Payment successful, creating subscription...', response);
+
+              // Prevent double processing
+              if (isProcessingPayment) {
+                console.log('Already processing payment, skipping duplicate call');
+                return;
+              }
+
+              setIsProcessingPayment(true);
+
+              try {
+                // Create account product (subscription) after successful payment
+                const accountProduct = await ProductService.createAccountProduct(
+                  accountId,
+                  product
+                );
+
+                console.log('Account product created successfully:', accountProduct);
+
+                // Call the parent success handler
+                onSuccess?.();
+              } catch (error) {
+                console.error('Failed to create account product after payment:', error);
+                onError?.('Payment was successful but subscription activation failed. Please contact support.');
+              } finally {
+                setIsProcessingPayment(false);
+              }
             },
-            error: (error: Error) => {
-              console.error("HPP error:", error.message);
-            }
           }
         );
 
@@ -150,7 +179,7 @@ export function HostedPaymentForm({
     return () => {
       clearTimeout(initTimer);
     };
-  }, [isScriptLoaded, token, billingProfileId, onError, onSuccess, onInitialized]);
+  }, [isScriptLoaded, token, accountId, product, hostedPaymentPageExternalId, billingProfileId, onError, onSuccess, onInitialized]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -170,6 +199,12 @@ export function HostedPaymentForm({
           <p className="text-gray-600">Loading payment system...</p>
         </div>
       </div>
+    );
+  }
+
+  if (isProcessingPayment) {
+    return (
+      <ActivatingMembershipModal />
     );
   }
 

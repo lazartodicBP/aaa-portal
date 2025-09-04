@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { Card } from '../ui/Card';
-import { Button } from '../ui/Button';
 import { Alert } from '../ui/Alert';
 import { ProductService } from '@/services/api/product.service';
 import { Product } from '@/services/api/types';
@@ -251,15 +250,6 @@ export function MembershipSelector() {
             </Card>
           );
         })}
-      </div>
-
-      <div className="flex justify-center">
-        <Button
-          variant="outline"
-          onClick={() => dispatch({ type: 'SET_STEP', payload: 0 })}
-        >
-          Back to Customer Information
-        </Button>
       </div>
     </div>
   );

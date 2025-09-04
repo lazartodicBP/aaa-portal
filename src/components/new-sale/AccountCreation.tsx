@@ -197,7 +197,7 @@ export function AccountCreation() {
             disabled={loading}
             className="flex-1"
           >
-            {loading ? 'Creating Account...' : 'Continue to Payment'}
+            {loading ? 'Creating Account...' : 'Create Account & Continue to Payment'}
           </Button>
         </div>
       </div>

@@ -1,7 +1,6 @@
 import { apiClient } from './client';
-import { Account, BillingProfile, AccountProduct } from './types';
-import { generateRandomNineDigitNumber } from "@/services/utils/utils";
-import { generateMemberID } from "@/services/utils/utils";
+import { Account, BillingProfile } from './types';
+import { generateRandomNineDigitNumber, generateMemberID } from "@/services/utils/utils";
 
 export class AccountService {
   static async createAccount(
@@ -25,7 +24,7 @@ export class AccountService {
         Status: 'ACTIVE',
         AccountTypeId: '681',  // Account type
         aaa_MemberID: generateMemberID(),
-        aaa_MemberAcctType: options?.memberAcctType,
+        aaa_MemberAcctType: options?.memberAcctType || "Primary",
         aaa_MemberCardNumber: generateRandomNineDigitNumber().toString(),
         aaa_MemberFirstName: firstName,
         aaa_MemberLastName: lastName,
@@ -87,48 +86,6 @@ export class AccountService {
 
     // createResponse only returns Id, so fetch full details
     return this.getBillingProfileById(createdProfile.Id);
-  }
-
-  static async createAccountProduct(product: Omit<AccountProduct, 'id'>): Promise<AccountProduct> {
-    const response = await apiClient.post('/ACCOUNT_PRODUCT', {
-      brmObjects: [{
-        AccountId: product.accountId,
-        Quantity: '1',
-        StartDate: product.startDate,
-        EndDate: product.endDate || '',
-        ProductId: product.productId,
-        Status: 'ACTIVE'
-      }]
-    });
-
-    // Standardized response handling
-    const createdProduct = response.createResponse?.[0] || response.brmObjects?.[0];
-
-    if (!createdProduct || !createdProduct.Id) {
-      throw new Error('Failed to create account product: Invalid response');
-    }
-
-    // If createResponse only has Id, fetch full details
-    if (response.createResponse && !createdProduct.AccountId) {
-      return this.getAccountProductById(createdProduct.Id);
-    }
-
-    return createdProduct;
-  }
-
-  static async updateAccountProduct(productId: string, updates: Partial<AccountProduct>): Promise<AccountProduct> {
-    const response = await apiClient.patch(`/ACCOUNT_PRODUCT/${productId}`, {
-      brmObjects: [updates]
-    });
-
-    // Standardized response handling
-    const updatedProduct = response.updateResponse?.[0] || response.brmObjects?.[0];
-
-    if (!updatedProduct) {
-      throw new Error('Failed to update account product: Invalid response');
-    }
-
-    return updatedProduct;
   }
 
   static async getAccountsByName(accountName: string): Promise<Account[]> {
@@ -229,7 +186,7 @@ export class AccountService {
       zip: profile.ZIP || profile.Zip || '',
       country: profile.Country,
       aaa_Email: profile.aaa_Email,
-      email: profile.email,
+      email: profile.Email,
       currencyCode: profile.CurrencyCode,
       billingCycle: profile.BillingCycle,
       paymentTermDays: parseInt(profile.PaymentTermDays) || 30,
@@ -237,19 +194,5 @@ export class AccountService {
       invoiceDeliveryMethod: profile.InvoiceDeliveryMethod,
       hostedPaymentPageExternalId: profile.HostedPaymentPageExternalId || '',
     };
-  }
-
-  // Helper method to get account product by ID (new)
-  private static async getAccountProductById(productId: string): Promise<AccountProduct> {
-    const response = await apiClient.get(`/ACCOUNT_PRODUCT/${productId}`);
-
-    // Handle different possible response structures
-    const product = response.retrieveResponse?.[0] || response.brmObjects?.[0] || response;
-
-    if (!product || !product.Id) {
-      throw new Error('Account product not found');
-    }
-
-    return product;
   }
 }
