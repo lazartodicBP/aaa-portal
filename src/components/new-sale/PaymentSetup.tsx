@@ -47,7 +47,6 @@ export function PaymentSetup() {
 
   const handlePaymentSuccess = () => {
     // Navigate to manage membership page with the account ID
-    alert(state.account?.id);
     if (state.account?.id) {
       router.push(`/manage-membership/${state.account.id}`);
     } else {

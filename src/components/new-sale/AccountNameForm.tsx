@@ -97,9 +97,10 @@ export function AccountNameForm({
           </label>
           <select
             id="billFrequency"
-            value={billFrequency}
+            disabled={true}
+            value={'Monthly'} // Only MONTHLY
             onChange={(e) => setBillFrequency(e.target.value as 'Monthly' | 'Yearly')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-aaa-blue"
+            className="w-full bg-blue-100 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-aaa-blue"
           >
             <option value="Monthly">Monthly</option>
             <option value="Yearly">Yearly</option>

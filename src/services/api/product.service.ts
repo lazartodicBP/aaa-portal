@@ -54,49 +54,36 @@ export class ProductService {
     }
   }
 
-  static async getUpgradeOptions(currentProductName: string): Promise<UpgradeOption[]> {
-    const query = `
-        SELECT
-            Id,
-            Original_ProductObj.Name,
-            Original_ProductObj.Id,
-            Destination_ProductObj.Name,
-            Destination_ProductObj.Id
-        FROM C_Upgrade_and_Downgrade_Management
-        WHERE Original_ProductObj.Name = '${currentProductName}'
-    `;
 
-    const response = await apiClient.post('/query', {
-      params: { sql: query }
-    });
+  static async getProductById(productId: string): Promise<Product> {
+    try {
+      const response = await apiClient.get(`/PRODUCT/${productId}`);
 
-    // Standardized response handling - response is already unwrapped by interceptor
-    const results = response.queryResponse || [];
-    return results;
-  }
+      console.log("Product response:", response);
+      // Standardized response handling
+      const productData = response.retrieveResponse[0] || response;
 
-  static async getCurrentSubscriptions(accountName: string) {
-    const query = `
-        SELECT
-            a.Id AS AccountId,
-            a.Name AS AccountName,
-            ap.Id AS AccountProductId,
-            ap.Name AS AccountProductName,
-            ap.Status AS AccountProductStatus,
-            ap.StartDate AS AccountProductStartDate,
-            ap.EndDate AS AccountProductEndDate
-        FROM ACCOUNT a
-                 JOIN ACCOUNT_PRODUCT ap ON a.Id = ap.AccountId
-        WHERE upper(a.Name) like upper('%${accountName}%')
-    `;
+      if (!productData || !productData.Id) {
+        throw new Error('Product not found');
+      }
 
-    const response = await apiClient.post('/query', {
-      params: { sql: query }
-    });
-
-    // Standardized response handling - response is already unwrapped by interceptor
-    const results = response.queryResponse || [];
-    return results;
+      return {
+        id: productData.Id,
+        name: productData.Name,
+        productId: productData.Id,
+        ratingMethodType: productData.RatingMethodId,
+        price: parsePrice(productData.Rate),
+        rate: productData.Rate, // Keep original rate string
+        subscriptionCycle: determineBillingCycle(productData.Name),
+        membershipLevel: determineMembershipLevel(productData.Name),
+        displayName: productData.aaa_DisplayName || productData.Name,
+        productType: productData.aaa_ProductType,
+        level: productData.aaa_Level,
+      } as Product;
+    } catch (error) {
+      console.error(`Failed to get product by ID (${productId}):`, error);
+      throw error;
+    }
   }
 
   // ========== ACCOUNT PRODUCT FUNCTIONS ==========
@@ -140,55 +127,88 @@ export class ProductService {
 
   static async updateAccountProduct(
     productId: string,
-    updates: Partial<AccountProduct>
+    updates: any
   ): Promise<AccountProduct> {
-    const response = await apiClient.patch(`/ACCOUNT_PRODUCT/${productId}`, {
-      brmObjects: [updates]
+    // Use PUT method as per API docs, not PATCH
+    const response = await apiClient.put(`/ACCOUNT_PRODUCT/${productId}`, {
+      brmObjects: updates  // Send as object, not array
     });
 
-    // Standardized response handling
-    const updatedProduct = response.updateResponse?.[0] || response.brmObjects?.[0];
+    // Handle the response structure
+    const result = response.upsertResponse?.[0] || response.updateResponse?.[0] || response.brmObjects || response;
 
-    if (!updatedProduct) {
+    if (!result) {
       throw new Error('Failed to update account product: Invalid response');
     }
 
-    return updatedProduct;
+    // Check for errors in the response
+    if (result.ErrorCode && result.ErrorCode !== '0') {
+      throw new Error(`Failed to update account product: ${result.ErrorText || 'Unknown error'} (Field: ${result.ErrorElementField})`);
+    }
+
+    // Check if it created a new record instead of updating
+    if (result.created === 'true' || result.created === true) {
+      console.warn(`Warning: Update request created a new record with ID ${result.Id} instead of updating ${productId}`);
+    }
+
+    // If response only has Id and status info, fetch full details
+    if (result.Id && !result.AccountId) {
+      return this.getAccountProductById(result.Id);
+    }
+
+    return result;
   }
 
   static async getAccountProductById(productId: string): Promise<AccountProduct> {
     const response = await apiClient.get(`/ACCOUNT_PRODUCT/${productId}`);
 
     // Handle different possible response structures
-    const product = response.retrieveResponse?.[0] || response.brmObjects?.[0] || response;
+    const accountProduct = response.retrieveResponse?.[0] || response.brmObjects?.[0] || response;
 
-    if (!product || !product.Id) {
+    if (!accountProduct || !accountProduct.Id) {
       throw new Error('Account product not found');
     }
 
-    return product;
+    return {
+      id: accountProduct.Id,
+      name: accountProduct.Name,
+      accountId:accountProduct.AccountId,
+      productId: accountProduct.ProductId,
+      startDate: accountProduct.StartDate,
+      endDate: accountProduct.EndDate,
+      status: accountProduct.Status,
+      benefitSet: accountProduct.BenefitSet,
+      quantity: parseInt(accountProduct.Quantity) || 1,
+      rate: accountProduct.Rate,
+      renewalDate: accountProduct.RenewalDate,
+      ratingMethodId: accountProduct.RatingMethodId,
+    } as AccountProduct;
   }
 
   // Get Account Products by Account ID
   static async getAccountProductsByAccountId(accountId: string): Promise<AccountProduct[]> {
-    const response = await apiClient.post('/query', {
-      sql: `SELECT Id, AccountId, ProductId, Quantity, StartDate, EndDate, Status, BenefitSet
-            FROM ACCOUNT_PRODUCT
-            WHERE AccountId = '${accountId}'
-            ORDER BY StartDate DESC`
+    const query = `AccountId = '${accountId}'`;
+    const response = await apiClient.get('/ACCOUNT_PRODUCT', {
+      params: {
+        queryAnsiSql: query
+      }
     });
 
-    const products = response.queryResponse || [];
+    const products: any = response.retrieveResponse || [];
 
     return products.map((product: any) => ({
       id: product.Id,
-      accountId: product.AccountId,
+      name: product.Name,
+      accountId:product.AccountId,
       productId: product.ProductId,
-      quantity: parseInt(product.Quantity) || 1,
       startDate: product.StartDate,
-      endDate: product.EndDate || undefined,
+      endDate: product.EndDate,
       status: product.Status,
-      benefitSet: product.BenefitSet
-    }));
+      benefitSet: product.BenefitSet,
+      quantity: parseInt(product.Quantity) || 1,
+      rate: product.Rate,
+      renewalDate: product.RenewalDate,
+      ratingMethodId: product.RatingMethodId,
+    } as AccountProduct));
   }
 }

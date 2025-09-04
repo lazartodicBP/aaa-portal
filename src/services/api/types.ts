@@ -29,7 +29,7 @@ export interface BillingProfile {
   aaa_Email: string;
   email: string;
   currencyCode: string;
-  billingCycle: 'MONTHLY' | 'YEARLY';
+  billingCycle: 'MONTHLY';  // Only MONTHLY
   paymentTermDays: number;
   billingMethod: 'MAIL' | 'EMAIL';
   invoiceDeliveryMethod: 'EMAIL' | 'MAIL';
@@ -52,13 +52,17 @@ export interface Product {
 
 export interface AccountProduct {
   id?: string;
+  name: string;
   accountId: string;
   productId: string;
   quantity: number;
   startDate: string;
   endDate?: string;
   status: 'ACTIVE' | 'DEACTIVATED';
-  benefitSet: string;
+  benefitSet: number;
+  rate: string;
+  renewalDate?: string;
+  ratingMethodId: string;
 }
 
 export interface PromoCode {

@@ -6,6 +6,7 @@ import { AccountService } from '@/services/api/account.service';
 import { ProductService } from '@/services/api/product.service';
 import { Account, BillingProfile, AccountProduct, Product } from '@/services/api/types';
 import { getMembershipBenefit } from '@/services/utils/membershipBenefits';
+import { getBenefitSetName, determineMembershipLevel } from '@/services/utils/utils';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
@@ -18,60 +19,104 @@ export default function ManageMembershipPage() {
 
   const [account, setAccount] = useState<Account | null>(null);
   const [billingProfile, setBillingProfile] = useState<BillingProfile | null>(null);
-  const [accountProducts, setAccountProducts] = useState<AccountProduct[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [activeAccountProduct, setActiveAccountProduct] = useState<AccountProduct | null>(null);
+  const [activeProductDetails, setActiveProductDetails] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true; // Add cleanup flag to prevent state updates on unmounted component
+
     const fetchAllData = async () => {
+      if (!accountId) {
+        setError('Invalid account ID');
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
+        setError(null);
 
         // Fetch account details
         const accountData = await AccountService.getAccountById(accountId);
-        setAccount(accountData);
+        if (!accountData) {
+          throw new Error('Account not found');
+        }
+        if (isMounted) {
+          setAccount(accountData);
+        }
 
-        // Fetch billing profile
+        // Fetch billing profile - don't fail if not found
         try {
           const billingData = await AccountService.getBillingProfileByAccountId(accountId);
-          setBillingProfile(billingData);
+          if (isMounted) {
+            setBillingProfile(billingData);
+          }
         } catch (err) {
-          console.log('No billing profile found for account');
+          if (isMounted) {
+            setBillingProfile(null);
+          }
         }
 
-        // Fetch account products
+        // Fetch account products and find active one
         try {
-          const productsData = await ProductService.getAccountProductsByAccountId(accountId);
-          setAccountProducts(productsData);
+          const accountProducts = await ProductService.getAccountProductsByAccountId(accountId);
+
+          const activeProduct = accountProducts.find(p =>
+            p.status === 'ACTIVE');
+
+          if (activeProduct) {
+            if (isMounted) {
+              setActiveAccountProduct(activeProduct);
+            }
+
+            // Fetch product details
+            try {
+              const productDetails = await ProductService.getProductById(activeProduct.productId);
+              if (isMounted) {
+                setActiveProductDetails(productDetails);
+              }
+            } catch (productErr) {
+              // If product details fail, just continue without them
+              console.error('Could not fetch product details:', productErr);
+              if (isMounted) {
+                setActiveProductDetails(null);
+              }
+            }
+          } else {
+            if (isMounted) {
+              setActiveAccountProduct(null);
+              setActiveProductDetails(null);
+            }
+          }
         } catch (err) {
-          console.log('No products found for account');
+          if (isMounted) {
+            setActiveAccountProduct(null);
+            setActiveProductDetails(null);
+          }
         }
 
-        // Fetch all available products for reference
-        const allProducts = await ProductService.getProducts();
-        setProducts(allProducts);
-
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching data:', err);
-        setError('Failed to load account details');
+        if (isMounted) {
+          setError(err.message || 'Failed to load account details');
+        }
       } finally {
-        setLoading(false);
+        // Always set loading to false when done
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
-    if (accountId) {
-      fetchAllData();
-    }
-  }, [accountId]);
+    fetchAllData();
 
-  // Update sidebar to highlight "Manage Membership" when on this page
-  useEffect(() => {
-    document.body.setAttribute('data-active-page', 'manage-membership');
+    // Cleanup function to prevent state updates on unmounted component
     return () => {
-      document.body.removeAttribute('data-active-page');
+      isMounted = false;
     };
-  }, []);
+  }, [accountId]);
 
   // Get membership icon based on level
   const getMembershipIcon = (level: string) => {
@@ -83,19 +128,23 @@ export default function ManageMembershipPage() {
     }
   };
 
-  // Get product details from product ID
-  const getProductDetails = (productId: string): Product | undefined => {
-    return products.find(p => p.id === productId);
-  };
+  // Calculate the current membership level using existing utilities
+  const membershipLevel = activeProductDetails
+    ? determineMembershipLevel(activeProductDetails.name) : 'CLASSIC';
+
 
   // Format date
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return 'N/A';
+    }
   };
 
   if (loading) {
@@ -110,16 +159,12 @@ export default function ManageMembershipPage() {
     return (
       <div className="text-center py-8">
         <Alert variant="error" message={error || 'Account not found'} />
-        <Button onClick={() => router.push('/portal')} className="mt-4">
+        <Button onClick={() => router.push('/')} className="mt-4">
           Return to Dashboard
         </Button>
       </div>
     );
   }
-
-  // Get active subscription
-  const activeProduct = accountProducts.find(p => p.status === 'ACTIVE');
-  const activeProductDetails = activeProduct ? getProductDetails(activeProduct.productId) : null;
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -129,20 +174,14 @@ export default function ManageMembershipPage() {
           Manage Membership
         </h1>
         <div className="flex gap-2">
-          {activeProductDetails && (
+          {activeAccountProduct && (
             <Button
               variant="primary"
               onClick={() => router.push(`/upgrade/${accountId}`)}
             >
-              Upgrade Membership
+              Upgrade/Downgrade Membership
             </Button>
           )}
-          <Button
-            variant="outline"
-            onClick={() => router.push('/')}
-          >
-            Back to Dashboard
-          </Button>
         </div>
       </div>
 
@@ -160,7 +199,7 @@ export default function ManageMembershipPage() {
           </div>
           <div>
             <p className="text-sm text-gray-600">Member ID</p>
-            <p className="font-mono text-sm">{account.aaa_MemberID || account.id}</p>
+            <p className="font-mono text-sm">{account.aaa_MemberID || account.id || 'N/A'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-600">Card Number</p>
@@ -196,28 +235,28 @@ export default function ManageMembershipPage() {
           Current Membership
         </div>
       }>
-        {activeProduct && activeProductDetails ? (
+        {activeAccountProduct ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white rounded-lg shadow-sm">
-                  {getMembershipIcon(activeProductDetails.membershipLevel)}
+                  {getMembershipIcon(membershipLevel)}
                 </div>
                 <div>
                   <h3 className="font-bold text-lg">
-                    {activeProductDetails.membershipLevel} Membership
+                    {membershipLevel} Membership
                   </h3>
                   <p className="text-sm text-gray-600">
-                    {activeProductDetails.displayName}
+                    {activeAccountProduct.name || getBenefitSetName(activeAccountProduct.benefitSet.toString())}
                   </p>
                 </div>
               </div>
               <div className="text-right">
                 <p className="text-2xl font-bold text-aaa-blue">
-                  {activeProductDetails.rate}
+                  {activeAccountProduct.rate || activeProductDetails?.rate || 'N/A'}
                 </p>
                 <p className="text-sm text-gray-600">
-                  {activeProductDetails.subscriptionCycle === 'YEARLY' ? 'per year' : 'per month'}
+                  {activeProductDetails?.subscriptionCycle === 'YEARLY' ? 'per year' : 'per month'}
                 </p>
               </div>
             </div>
@@ -225,30 +264,30 @@ export default function ManageMembershipPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4">
               <div>
                 <p className="text-sm text-gray-600">Start Date</p>
-                <p className="font-semibold">{formatDate(activeProduct.startDate)}</p>
+                <p className="font-semibold">{formatDate(activeAccountProduct.startDate)}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Renewal Date</p>
-                <p className="font-semibold">{formatDate(activeProduct.endDate || '')}</p>
+                <p className="font-semibold">{formatDate(activeAccountProduct.renewalDate || activeAccountProduct.endDate)}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Status</p>
                 <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                  {activeProduct.status}
+                  {activeAccountProduct.status}
                 </span>
               </div>
             </div>
 
             {/* Benefits Summary */}
             {(() => {
-              const benefits = getMembershipBenefit(activeProductDetails.membershipLevel);
+              const benefits = getMembershipBenefit(membershipLevel);
               return benefits ? (
                 <div className="mt-4 p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm font-semibold text-gray-700 mb-2">Included Benefits:</p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
                     {benefits.roadsideAssistance.slice(0, 4).map((benefit, idx) => (
                       <div key={idx} className="flex items-start">
-                        <span className="text-green-500 mr-2">✓</span>
+                        <span className="text-green-500 mr-2">✔</span>
                         <span>{benefit}</span>
                       </div>
                     ))}
@@ -335,30 +374,6 @@ export default function ManageMembershipPage() {
           </div>
         )}
       </Card>
-
-      {/* Past Subscriptions */}
-      {accountProducts.filter(p => p.status !== 'ACTIVE').length > 0 && (
-        <Card header="Past Subscriptions">
-          <div className="space-y-2">
-            {accountProducts.filter(p => p.status !== 'ACTIVE').map((product) => {
-              const productDetails = getProductDetails(product.productId);
-              return (
-                <div key={product.id} className="flex justify-between items-center p-3 bg-gray-50 rounded">
-                  <div>
-                    <p className="font-medium">
-                      {productDetails?.displayName || 'Unknown Product'}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {formatDate(product.startDate)} - {formatDate(product.endDate || '')}
-                    </p>
-                  </div>
-                  <span className="text-sm text-gray-500">{product.status}</span>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-      )}
     </div>
   );
 }

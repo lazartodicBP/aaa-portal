@@ -55,3 +55,19 @@ export function determineBillingCycle(productName: string): 'MONTHLY' | 'YEARLY'
   const name = productName?.toLowerCase() || '';
   return name.includes('annual') ? 'YEARLY' : 'MONTHLY';
 }
+
+
+// Utility function to return the benefit set name based on the given benefitSet number
+export function getBenefitSetName(benefitSet: string): string {
+  switch (benefitSet) {
+    case '1':
+      return 'MVP Basic';
+    case '2':
+      return 'MVP Plus';
+    case '3':
+      return 'MVP Premier';
+    default:
+      console.warn(`Unknown benefit set: ${benefitSet}, defaulting to 'Unknown Benefit Set'`);
+      return 'Unknown Benefit Set';
+  }
+}

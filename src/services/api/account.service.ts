@@ -62,7 +62,7 @@ export class AccountService {
         aaa_Email: profile.aaa_Email,
         Email: profile.email,
         // Use the billingCycle from the profile if provided, otherwise default to MONTHLY
-        BillingCycle: profile.billingCycle || 'MONTHLY',
+        BillingCycle: 'MONTHLY',
         BillingCloseDate: '31',
         PaymentTermDays: '30',
         MonthlyBillingDate: '31',
@@ -143,7 +143,7 @@ export class AccountService {
       aaa_MemberMiddleName: acc.aaa_MemberMiddleName || '',
       aaa_MemberRenewalMethod: acc.aaa_MemberRenewalMethod || '',
       aaa_MembershipBillFrequency: acc.aaa_MembershipBillFrequency || ''
-    };
+    } as Account;
   }
 
   // Get AccountTypeId by AccountType name
@@ -218,6 +218,6 @@ export class AccountService {
       billingMethod: profile.BillingMethod,
       invoiceDeliveryMethod: profile.InvoiceDeliveryMethod,
       hostedPaymentPageExternalId: profile.HostedPaymentPageExternalId || '',
-    };
+    } as BillingProfile;
   }
 }

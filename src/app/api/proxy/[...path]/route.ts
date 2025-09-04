@@ -143,3 +143,49 @@ export async function PATCH(
     );
   }
 }
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { path: string[] } }
+) {
+  const path = params.path.join('/');
+  const body = await request.json();
+  const sessionId = request.headers.get('sessionid');
+
+  const fullUrl = `${API_BASE_URL}/${path}`;
+
+  console.log('Proxy PUT:', {
+    path,
+    fullUrl,
+    sessionId: sessionId ? 'present' : 'none',
+    body
+  });
+
+  try {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (sessionId) {
+      headers['sessionid'] = sessionId;
+    }
+
+    const response = await fetch(fullUrl, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    const data = await response.json();
+
+    console.log('PUT response:', data);
+
+    return NextResponse.json(data, { status: response.status });
+  } catch (error) {
+    console.error('Proxy PUT error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update data' },
+      { status: 500 }
+    );
+  }
+}
