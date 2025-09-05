@@ -7,11 +7,11 @@ import { HostedPaymentForm } from '@/components/new-sale/HostedPaymentForm';
 import { HPPService } from '@/services/api/hpp.service';
 import { AccountService } from '@/services/api/account.service';
 import { ProductService } from '@/services/api/product.service';
-import { Account, Product, BillingProfile } from '@/services/api/types';
-import { getMembershipBenefit } from '@/services/utils/membershipBenefits';
-import { ArrowLeft, TrendingUp, TrendingDown, RefreshCw, Car, Shield, Star } from 'lucide-react';
+import { PromoService } from '@/services/api/promo.service';
+import { Account, Product, BillingProfile, PromoCode } from '@/services/api/types';
+import { ArrowLeft, TrendingUp, TrendingDown, RefreshCw, Car, Shield, Star, Tag, CheckCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import {getFormattedDate} from "@/services/utils/utils";
+import { getFormattedDate } from "@/services/utils/utils";
 
 interface UpgradePaymentSetupProps {
   account: Account;
@@ -36,10 +36,25 @@ export function UpgradePaymentSetup({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [proratedAmount, setProratedAmount] = useState<number | null>(null);
+  const [autoPayEnabled, setAutoPayEnabled] = useState(false);
+  const [promoCode, setPromoCode] = useState<PromoCode | null>(null);
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [availablePromos, setAvailablePromos] = useState<PromoCode[]>([]);
 
   useEffect(() => {
     loadPaymentData();
+    if (newProduct.subscriptionCycle === 'YEARLY') {
+      loadPromoCodes();
+    }
   }, []);
+
+  useEffect(() => {
+    // Auto-suggest promo code for annual plans
+    if (newProduct.subscriptionCycle === 'YEARLY') {
+      setPromoCodeInput('autopay50');
+    }
+  }, [newProduct]);
 
   const loadPaymentData = async () => {
     try {
@@ -60,7 +75,7 @@ export function UpgradePaymentSetup({
 
       // Calculate prorated amount if upgrading
       if (mode === 'upgrade' && currentProduct) {
-        const prorated = calculateProration(currentProduct, newProduct);
+        const prorated = calculateProration(currentProduct, newProduct, null);
         setProratedAmount(prorated);
       }
 
@@ -72,41 +87,97 @@ export function UpgradePaymentSetup({
     }
   };
 
-  const calculateProration = (current: Product, newProd: Product): number => {
-    // Simple prorated calculation - in production, this would be done server-side
-    // This is just for demonstration
-    const priceDiff = newProd.price - current.price;
+  const loadPromoCodes = async () => {
+    try {
+      const promos = await PromoService.getAvailablePromoCodes();
+      setAvailablePromos(promos);
+    } catch (err) {
+      console.error('Failed to load promo codes:', err);
+    }
+  };
+
+  const calculateProration = (current: Product, newProd: Product, promo: PromoCode | null): number => {
+    let priceDiff = newProd.price - current.price;
+
+    // Apply promo discount if applicable
+    if (promo?.aaa_Promo_Code === 'autopay50' && autoPayEnabled) {
+      priceDiff = priceDiff * 0.5; // 50% discount
+    }
+
     return Math.max(0, priceDiff);
+  };
+
+  const applyPromoCode = () => {
+    const foundPromo = availablePromos.find(p =>
+      p.aaa_Promo_Code.toLowerCase() === promoCodeInput.toLowerCase()
+    );
+
+    if (foundPromo) {
+      setPromoCode(foundPromo);
+      setPromoApplied(true);
+
+      // Recalculate if needed
+      if (mode === 'upgrade' && currentProduct) {
+        const prorated = calculateProration(currentProduct, newProduct, foundPromo);
+        setProratedAmount(prorated);
+      }
+    } else {
+      setError('Invalid promo code');
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+
+  const removePromoCode = () => {
+    setPromoCode(null);
+    setPromoApplied(false);
+    setPromoCodeInput('');
+    setAutoPayEnabled(false);
+
+    // Recalculate without promo
+    if (mode === 'upgrade' && currentProduct) {
+      const prorated = calculateProration(currentProduct, newProduct, null);
+      setProratedAmount(prorated);
+    }
   };
 
   const handlePaymentError = (errorMessage: string) => {
     setError(errorMessage);
   };
 
-  const handlePaymentSuccess = async () => {
+  const handlePaymentSuccess = async (paymentData: any, additionalData?: { promoCode?: PromoCode | null; autoPayEnabled?: boolean }) => {
     try {
-      // Deactivate current product
+      // Use additionalData to get promoCode and autoPayEnabled
+      const { promoCode, autoPayEnabled } = additionalData || {};
+
+      // If promo code is present and AutoPay is enabled, add the promo code
+      if (promoCode && autoPayEnabled && promoCode.aaa_Promo_Code === 'autopay50') {
+        try {
+          await PromoService.addPromoCodeToAccount(account.id!, promoCode.id);
+          console.log('Promo code applied successfully');
+        } catch (promoErr) {
+          console.error('Failed to apply promo code:', promoErr);
+        }
+      }
+
+      // Deactivate current product if exists
       if (currentProduct) {
         const accountProducts = await ProductService.getAccountProductsByAccountId(account.id!);
         const activeProduct = accountProducts.find(p =>
           p.status === 'ACTIVE' && p.productId === currentProduct.id);
 
         if (activeProduct) {
-          // Send all required fields as per API documentation
-          // Required: AccountId, Id, Quantity, ProductId, StartDate, Status
           await ProductService.updateAccountProduct(activeProduct.id!, {
-            AccountId: parseInt(activeProduct.accountId),  // Must be integer
-            Id: activeProduct.id,                           // The record ID
-            Quantity: activeProduct.quantity.toString(),    // Must be string
-            ProductId: parseInt(activeProduct.productId),   // Must be integer
-            StartDate: activeProduct.startDate,             // Keep original start date
-            Status: 'DEACTIVATED',                          // Change status
-            EndDate: getFormattedDate(new Date())          // Set end date
+            AccountId: parseInt(activeProduct.accountId),
+            Id: activeProduct.id,
+            Quantity: activeProduct.quantity.toString(),
+            ProductId: parseInt(activeProduct.productId),
+            StartDate: activeProduct.startDate,
+            Status: 'DEACTIVATED',
+            EndDate: getFormattedDate(new Date())
           });
         }
       }
 
-      // The new account product is created in HostedPaymentForm's successCapture
       onSuccess();
     } catch (err) {
       console.error('Error updating subscription:', err);
@@ -147,7 +218,7 @@ export function UpgradePaymentSetup({
     );
   }
 
-  if (error || !token || !billingProfile) {
+  if (!token || !billingProfile) {
     return (
       <div>
         <Alert variant="error" message={error || 'Payment system unavailable'} />
@@ -159,9 +230,14 @@ export function UpgradePaymentSetup({
     );
   }
 
-  // Get benefits for comparison
-  const currentBenefits = currentProduct ? getMembershipBenefit(currentProduct.membershipLevel) : null;
-  const newBenefits = getMembershipBenefit(newProduct.membershipLevel);
+  const getDiscountedPrice = () => {
+    if (promoCode?.aaa_Promo_Code === 'autopay50' && autoPayEnabled) {
+      return newProduct.price * 0.5;
+    }
+    return newProduct.price;
+  };
+
+  const isAnnualPlan = newProduct.subscriptionCycle === 'YEARLY';
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -214,13 +290,89 @@ export function UpgradePaymentSetup({
                   <div>
                     <p className="font-semibold">{newProduct.membershipLevel}</p>
                     <p className="text-sm text-gray-600">
-                      {newProduct.subscriptionCycle === 'YEARLY' ? 'Annual' : 'Monthly'}
+                      {isAnnualPlan ? 'Annual' : 'Monthly'}
                     </p>
                   </div>
                 </div>
-                <p className="font-bold text-aaa-blue">{newProduct.rate}</p>
+                <div>
+                  <p className="font-bold text-aaa-blue">
+                    {promoApplied && autoPayEnabled ? (
+                      <>
+                        <span className="line-through text-gray-400 text-sm">{newProduct.rate}</span>
+                        <span className="ml-2">${getDiscountedPrice().toFixed(2)}</span>
+                      </>
+                    ) : newProduct.rate}
+                  </p>
+                </div>
               </div>
             </div>
+
+            {/* Promo Code Section - Only for Annual Plans */}
+            {isAnnualPlan && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Promo Code {promoApplied && <span className="text-green-600">(Applied)</span>}
+                </label>
+                {!promoApplied ? (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={promoCodeInput}
+                      onChange={(e) => setPromoCodeInput(e.target.value)}
+                      placeholder="Enter promo code"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-aaa-blue"
+                      disabled={promoApplied}
+                    />
+                    <Button
+                      onClick={applyPromoCode}
+                      disabled={!promoCodeInput || promoApplied}
+                      className="whitespace-nowrap"
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <Tag className="w-4 h-4 text-green-600 mr-2" />
+                        <span className="text-sm font-medium text-green-900">
+                          {promoCode?.aaa_Promo_Code}
+                        </span>
+                      </div>
+                      <button
+                        onClick={removePromoCode}
+                        className="text-sm text-red-600 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    {promoCode?.aaa_Promo_Code === 'autopay50' && (
+                      <p className="text-xs text-green-700 mt-1">
+                        50% discount {autoPayEnabled ? 'will be applied' : 'requires AutoPay to be enabled'}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Mock AutoPay Checkbox - Only show when promo is applied */}
+                {promoApplied && promoCode?.aaa_Promo_Code === 'autopay50' && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={autoPayEnabled}
+                        onChange={(e) => setAutoPayEnabled(e.target.checked)}
+                        className="mr-2 h-4 w-4 text-aaa-blue border-gray-300 rounded focus:ring-aaa-blue"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Enable Auto-Pay for 50% Discount
+                      </span>
+                    </label>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Price Information */}
             {proratedAmount !== null && proratedAmount > 0 && (
@@ -235,38 +387,6 @@ export function UpgradePaymentSetup({
               </div>
             )}
           </div>
-
-          {/* Benefits Comparison */}
-          {mode !== 'change' && currentBenefits && newBenefits && (
-            <div className="bg-white border border-gray-200 rounded-lg p-6">
-              <h3 className="font-semibold mb-4">
-                {mode === 'upgrade' ? 'New Benefits You\'ll Get' : 'Benefits Changes'}
-              </h3>
-
-              {mode === 'upgrade' && (
-                <div className="space-y-2">
-                  {newBenefits.roadsideAssistance
-                    .filter(benefit => !currentBenefits.roadsideAssistance.includes(benefit))
-                    .slice(0, 3)
-                    .map((benefit, idx) => (
-                      <div key={idx} className="flex items-start">
-                        <span className="text-green-500 mr-2">+</span>
-                        <span className="text-sm text-gray-700">{benefit}</span>
-                      </div>
-                    ))}
-                  {newBenefits.additionalBenefits
-                    .filter(benefit => !currentBenefits.additionalBenefits.includes(benefit))
-                    .slice(0, 3)
-                    .map((benefit, idx) => (
-                      <div key={idx} className="flex items-start">
-                        <span className="text-green-500 mr-2">+</span>
-                        <span className="text-sm text-gray-700">{benefit}</span>
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Account Info */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
@@ -310,6 +430,8 @@ export function UpgradePaymentSetup({
                 product={newProduct}
                 billingProfileId={billingProfile.id}
                 hostedPaymentPageExternalId={billingProfile.hostedPaymentPageExternalId}
+                promoCode={promoCode}
+                autoPayEnabled={autoPayEnabled}
                 onError={handlePaymentError}
                 onSuccess={handlePaymentSuccess}
               />

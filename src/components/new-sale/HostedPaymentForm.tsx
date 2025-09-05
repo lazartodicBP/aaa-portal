@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ProductService } from '@/services/api/product.service';
 import {getBenefitSet} from "@/services/utils/utils";
 import ActivatingMembershipModal from "@/components/new-sale/ActivatingMembershipModal";
+import {PromoCode} from "@/services/api/types";
 
 declare global {
   interface Window {
@@ -16,8 +17,10 @@ interface HostedPaymentFormProps {
   product: any;
   billingProfileId?: string;
   hostedPaymentPageExternalId?: string;
+  promoCode?: PromoCode | null;
+  autoPayEnabled?: boolean;
   onError?: (error: string) => void;
-  onSuccess?: () => void;
+  onSuccess?: (paymentData: any, additionalData?: { promoCode?: PromoCode | null; autoPayEnabled?: boolean }) => void;
   onInitialized?: () => void;
 }
 
@@ -28,6 +31,8 @@ export function HostedPaymentForm({
                                     product,
                                     billingProfileId,
                                     hostedPaymentPageExternalId,
+                                    promoCode,
+                                    autoPayEnabled,
                                     onError,
                                     onSuccess,
                                     onInitialized
@@ -35,7 +40,14 @@ export function HostedPaymentForm({
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const promoCodeRef = useRef(promoCode);
+  const autoPayEnabledRef = useRef(autoPayEnabled);
   const initializationRef = useRef(false);
+
+  useEffect(() => {
+    promoCodeRef.current = promoCode;
+    autoPayEnabledRef.current = autoPayEnabled;
+  }, [promoCode, autoPayEnabled]);
 
   // Load HPP script
   useEffect(() => {
@@ -139,7 +151,6 @@ export function HostedPaymentForm({
             successCapture: async (response: any) => {
               console.log('Payment successful, creating subscription...', response);
 
-              // Prevent double processing
               if (isProcessingPayment) {
                 console.log('Already processing payment, skipping duplicate call');
                 return;
@@ -148,7 +159,6 @@ export function HostedPaymentForm({
               setIsProcessingPayment(true);
 
               try {
-                // Create account product (subscription) after successful payment
                 const accountProduct = await ProductService.createAccountProduct(
                   accountId,
                   product
@@ -156,15 +166,18 @@ export function HostedPaymentForm({
 
                 console.log('Account product created successfully:', accountProduct);
 
-                // Call the parent success handler
-                onSuccess?.();
+                // Pass additional data along with payment response
+                onSuccess?.(response, {
+                  promoCode: promoCodeRef.current,
+                  autoPayEnabled: autoPayEnabledRef.current
+                });
               } catch (error) {
                 console.error('Failed to create account product after payment:', error);
                 onError?.('Payment was successful but subscription activation failed. Please contact support.');
               } finally {
                 setIsProcessingPayment(false);
               }
-            },
+            }
           }
         );
 

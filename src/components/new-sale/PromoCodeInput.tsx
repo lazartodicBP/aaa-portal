@@ -25,7 +25,7 @@ export function PromoCodeInput({ onError }: PromoCodeInputProps) {
 
   const loadPromoCodes = async () => {
     try {
-      const promos = await PromoService.getPromoCodes();
+      const promos = await PromoService.getAvailablePromoCodes();
       setAvailablePromos(promos.filter(p => p.aaa_Promo_Code_Status === 'ACTIVE'));
     } catch (error) {
       console.error('Failed to load promo codes:', error);

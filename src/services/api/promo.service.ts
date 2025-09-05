@@ -19,6 +19,7 @@ export class PromoService {
       });
 
       const promoCodes = response.queryResponse || [];
+      console.log('Promo codes:', promoCodes);
 
       return promoCodes.map((promo: any) => ({
         id: promo.Id,
