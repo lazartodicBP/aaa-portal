@@ -10,7 +10,8 @@ import { getBenefitSetName, determineMembershipLevel } from '@/services/utils/ut
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Alert } from '@/components/ui/Alert';
-import { User, CreditCard, Package, Calendar, Mail, MapPin, Shield, Car, Star } from 'lucide-react';
+import { PromoCodeModal } from '@/components/modals/PromoCodeModal';
+import { User, CreditCard, Package, Calendar, Mail, MapPin, Shield, Car, Star, Tag } from 'lucide-react';
 
 export default function ManageMembershipPage() {
   const params = useParams();
@@ -23,6 +24,7 @@ export default function ManageMembershipPage() {
   const [activeProductDetails, setActiveProductDetails] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showPromoModal, setShowPromoModal] = useState(false);
 
   useEffect(() => {
     let isMounted = true; // Add cleanup flag to prevent state updates on unmounted component
@@ -64,7 +66,8 @@ export default function ManageMembershipPage() {
           const accountProducts = await ProductService.getAccountProductsByAccountId(accountId);
 
           const activeProduct = accountProducts.find(p =>
-            p.status === 'ACTIVE');
+            p.status === 'ACTIVE'
+            && (p.name.toLowerCase().includes('annual') || p.name.toLowerCase().includes('monthly')));
 
           if (activeProduct) {
             if (isMounted) {
@@ -175,12 +178,22 @@ export default function ManageMembershipPage() {
         </h1>
         <div className="flex gap-2">
           {activeAccountProduct && (
-            <Button
-              variant="primary"
-              onClick={() => router.push(`/upgrade/${accountId}`)}
-            >
-              Upgrade/Downgrade Membership
-            </Button>
+            <>
+              <Button
+                variant="primary"
+                onClick={() => setShowPromoModal(true)}
+                className="bg-yellow-600 hover:bg-yellow-700 text-white"
+              >
+                <Tag className="w-4 h-4 mr-2" />
+                Add Promo Code
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => router.push(`/upgrade/${accountId}`)}
+              >
+                Upgrade/Downgrade Membership
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -374,6 +387,17 @@ export default function ManageMembershipPage() {
           </div>
         )}
       </Card>
+
+      {/* Promo Code Modal */}
+      <PromoCodeModal
+        isOpen={showPromoModal}
+        onClose={() => setShowPromoModal(false)}
+        accountId={accountId}
+        onSuccess={() => {
+          // Optionally refresh account data or show success message
+          setShowPromoModal(false);
+        }}
+      />
     </div>
   );
 }

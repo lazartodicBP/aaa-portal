@@ -91,3 +91,17 @@ export interface MembershipBenefit {
   additionalBenefits: string[];
   popularTag?: boolean;
 }
+
+export interface PromoCode {
+  id: string;
+  aaa_Promo_Code_Name: string;
+  aaa_Promo_Code: string;
+}
+
+export interface AccountPromoCode {
+  id?: string;
+  AccountId: string;
+  aaa_Promo_Code: string;
+  aaa_PromoCodeStartDate: string;
+  aaa_PromoCodeStatus: 'Active' | 'Deactivated';
+}
