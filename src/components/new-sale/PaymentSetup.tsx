@@ -199,6 +199,7 @@ export function PaymentSetup() {
                 product={state.selectedProduct}
                 billingProfileId={state.billingProfile.id}
                 hostedPaymentPageExternalId={state.billingProfile.hostedPaymentPageExternalId}
+                proratedAmount={null} // No proration for new sales
                 onError={handlePaymentError}
                 onSuccess={handlePaymentSuccess}
               />

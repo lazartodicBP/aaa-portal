@@ -32,6 +32,33 @@ export class PromoService {
     }
   }
 
+  static async getPromoCodeById(promoCodeId: string): Promise<any | null> {
+    try {
+      const query = `SELECT Id, aaa_Promo_Code_Name, aaa_Promo_Code 
+                   FROM AAANE_PROMO_CODES 
+                   WHERE Id = '${promoCodeId}'`;
+
+      const response: any = await apiClient.post('/query', {
+        sql: query
+      });
+
+      const promoCode = response.queryResponse[0] || [];
+
+      if (promoCode.length === 0) {
+        return null;
+      }
+
+      return {
+        id: promoCode.Id,
+        aaa_Promo_Code_Name: promoCode.aaa_Promo_Code_Name,
+        aaa_Promo_Code: promoCode.aaa_Promo_Code
+      };
+    } catch (error) {
+      console.error('Failed to fetch promo code by ID:', error);
+      return null;
+    }
+  }
+
   /**
    * Add a promo code to an account
    */

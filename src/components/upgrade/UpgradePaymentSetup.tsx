@@ -9,7 +9,7 @@ import { AccountService } from '@/services/api/account.service';
 import { ProductService } from '@/services/api/product.service';
 import { PromoService } from '@/services/api/promo.service';
 import { Account, Product, BillingProfile, PromoCode } from '@/services/api/types';
-import { ArrowLeft, TrendingUp, TrendingDown, RefreshCw, Car, Shield, Star, Tag, CheckCircle } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, RefreshCw, Car, Shield, Star, Tag, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getFormattedDate } from "@/services/utils/utils";
 
@@ -42,6 +42,12 @@ export function UpgradePaymentSetup({
   const [promoApplied, setPromoApplied] = useState(false);
   const [availablePromos, setAvailablePromos] = useState<PromoCode[]>([]);
 
+  // New state for two-step flow
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [finalProratedAmount, setFinalProratedAmount] = useState<number | null>(null);
+  const [finalPromoCode, setFinalPromoCode] = useState<PromoCode | null>(null);
+  const [finalAutoPayEnabled, setFinalAutoPayEnabled] = useState(false);
+
   useEffect(() => {
     loadPaymentData();
     if (newProduct.subscriptionCycle === 'YEARLY') {
@@ -56,6 +62,7 @@ export function UpgradePaymentSetup({
     }
   }, [newProduct]);
 
+  // Recalculate when autoPayEnabled changes
   useEffect(() => {
     if (mode === 'upgrade' && currentProduct && promoCode) {
       const prorated = calculateProration(currentProduct, newProduct, promoCode);
@@ -195,6 +202,21 @@ export function UpgradePaymentSetup({
     }
   };
 
+  // Handler for Continue to Payment button
+  const handleContinueToPayment = () => {
+    // Lock in the current promo state
+    setFinalPromoCode(promoCode);
+    setFinalAutoPayEnabled(autoPayEnabled);
+    setFinalProratedAmount(proratedAmount);
+    setShowPaymentForm(true);
+  };
+
+  // Handler for Back to Summary button
+  const handleBackToSummary = () => {
+    setShowPaymentForm(false);
+    // User can now change promo settings
+  };
+
   const getMembershipIcon = (level: string) => {
     switch(level) {
       case 'CLASSIC': return <Car className="w-5 h-5" />;
@@ -256,7 +278,7 @@ export function UpgradePaymentSetup({
       </h2>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* Left Column - Comparison */}
+        {/* Left Column - Always visible */}
         <div className="space-y-6">
           {/* Change Summary Card */}
           <div className="bg-white border border-gray-200 rounded-lg p-6">
@@ -331,11 +353,11 @@ export function UpgradePaymentSetup({
                       onChange={(e) => setPromoCodeInput(e.target.value)}
                       placeholder="Enter promo code"
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-aaa-blue"
-                      disabled={promoApplied}
+                      disabled={promoApplied || showPaymentForm}
                     />
                     <Button
                       onClick={applyPromoCode}
-                      disabled={!promoCodeInput || promoApplied}
+                      disabled={!promoCodeInput || promoApplied || showPaymentForm}
                       className="whitespace-nowrap"
                     >
                       Apply
@@ -350,12 +372,14 @@ export function UpgradePaymentSetup({
                           {promoCode?.aaa_Promo_Code}
                         </span>
                       </div>
-                      <button
-                        onClick={removePromoCode}
-                        className="text-sm text-red-600 hover:text-red-700"
-                      >
-                        Remove
-                      </button>
+                      {!showPaymentForm && (
+                        <button
+                          onClick={removePromoCode}
+                          className="text-sm text-red-600 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      )}
                     </div>
                     {promoCode?.aaa_Promo_Code === 'autopay50' && (
                       <p className="text-xs text-green-700 mt-1">
@@ -365,7 +389,7 @@ export function UpgradePaymentSetup({
                   </div>
                 )}
 
-                {/* Mock AutoPay Checkbox - Only show when promo is applied */}
+                {/* AutoPay Checkbox - Only show when promo is applied */}
                 {promoApplied && promoCode?.aaa_Promo_Code === 'autopay50' && (
                   <div className="mt-3 p-3 bg-gray-50 rounded-lg">
                     <label className="flex items-center cursor-pointer">
@@ -374,6 +398,7 @@ export function UpgradePaymentSetup({
                         checked={autoPayEnabled}
                         onChange={(e) => setAutoPayEnabled(e.target.checked)}
                         className="mr-2 h-4 w-4 text-aaa-blue border-gray-300 rounded focus:ring-aaa-blue"
+                        disabled={showPaymentForm}
                       />
                       <span className="text-sm font-medium text-gray-700">
                         Enable Auto-Pay for 50% Discount
@@ -394,6 +419,20 @@ export function UpgradePaymentSetup({
                 <p className="text-xs text-gray-500">
                   * Full price will apply at next renewal
                 </p>
+              </div>
+            )}
+
+            {/* Show Continue to Payment button when payment form is hidden */}
+            {!showPaymentForm && (
+              <div className="mt-6 pt-6 border-t">
+                <Button
+                  variant="primary"
+                  onClick={handleContinueToPayment}
+                  className="w-full"
+                  size="lg"
+                >
+                  Continue to Payment
+                </Button>
               </div>
             )}
           </div>
@@ -418,54 +457,89 @@ export function UpgradePaymentSetup({
           </div>
         </div>
 
-        {/* Right Column - Payment Form */}
-        <div>
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="bg-gray-50 px-5 py-4 border-b">
-              <h3 className="font-semibold text-lg text-gray-900">Payment Information</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                {mode === 'upgrade'
-                  ? 'Enter payment details to upgrade your membership'
-                  : mode === 'downgrade'
-                    ? 'Confirm payment method for your new plan'
-                    : 'Update your payment for the billing cycle change'}
-              </p>
-            </div>
+        {/* Right Column - Only show when showPaymentForm is true */}
+        {showPaymentForm ? (
+          <div>
+            {/* Back to Summary button */}
+            <Button
+              variant="outline"
+              onClick={handleBackToSummary}
+              className="mb-4 w-full"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Membership Summary
+            </Button>
 
-            <div className="p-5">
-              <HostedPaymentForm
-                token={token}
-                accountId={account.id!}
-                accountName={account.name}
-                product={newProduct}
-                billingProfileId={billingProfile.id}
-                hostedPaymentPageExternalId={billingProfile.hostedPaymentPageExternalId}
-                promoCode={promoCode}
-                autoPayEnabled={autoPayEnabled}
-                onError={handlePaymentError}
-                onSuccess={handlePaymentSuccess}
-              />
-            </div>
-          </div>
-
-          {/* Security Note */}
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-            <div className="flex items-start">
-              <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <div className="text-sm text-blue-900">
-                <p className="font-medium">Secure Transaction</p>
-                <p className="text-blue-700 mt-1">
-                  Your payment information is encrypted and secure.
+            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="bg-gray-50 px-5 py-4 border-b">
+                <h3 className="font-semibold text-lg text-gray-900">Payment Information</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {mode === 'upgrade'
+                    ? 'Enter payment details to upgrade your membership'
+                    : mode === 'downgrade'
+                      ? 'Confirm payment method for your new plan'
+                      : 'Update your payment for the billing cycle change'}
                 </p>
+
+                {/* Show locked-in promo details */}
+                {finalPromoCode && (
+                  <div className="mt-3 p-2 bg-green-50 rounded text-sm">
+                    <span className="text-green-800">
+                      Promo code <strong>{finalPromoCode.aaa_Promo_Code}</strong> applied
+                      {finalAutoPayEnabled && ' with AutoPay enabled'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-5">
+                <HostedPaymentForm
+                  token={token}
+                  accountId={account.id!}
+                  accountName={account.name}
+                  product={newProduct}
+                  billingProfileId={billingProfile.id}
+                  hostedPaymentPageExternalId={billingProfile.hostedPaymentPageExternalId}
+                  promoCode={finalPromoCode}
+                  autoPayEnabled={finalAutoPayEnabled}
+                  proratedAmount={finalProratedAmount} // Pass the prorated amount
+                  onError={handlePaymentError}
+                  onSuccess={handlePaymentSuccess}
+                />
+              </div>
+            </div>
+
+            {/* Security Note */}
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div className="flex items-start">
+                <svg className="w-5 h-5 text-blue-600 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <div className="text-sm text-blue-900">
+                  <p className="font-medium">Secure Transaction</p>
+                  <p className="text-blue-700 mt-1">
+                    Your payment information is encrypted and secure.
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          // Placeholder when payment form is hidden
+          <div className="flex items-center justify-center bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 min-h-[400px]">
+            <div className="text-center">
+              <CreditCard className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600 text-lg font-medium">Payment Form</p>
+              <p className="text-gray-500 text-sm mt-2">
+                Review your membership summary and click<br />
+                "Continue to Payment" when ready
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Back Button */}
+      {/* Back Button - Always visible at bottom */}
       <div className="flex justify-center mt-6">
         <Button variant="outline" onClick={onBack} size="lg">
           <ArrowLeft className="w-4 h-4 mr-2" />

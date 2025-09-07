@@ -66,14 +66,14 @@ export class AccountService {
         BillingCloseDate: '31',
         PaymentTermDays: '30',
         MonthlyBillingDate: '31',
-        ManualCloseFlag: '1',
+        ManualCloseFlag: '0',
         InvoiceTemplateId: '122',
         InvoiceDeliveryMethod: 'EMAIL',
         InvoiceApprovalFlag: '1',
         BillingMethod: 'MAIL',
         TimeZoneId: '351',
         CurrencyCode: 'USD',
-        ActivityTimeZone: 'US/Pacific'
+        ActivityTimeZone: 'US/Pacific',
       }]
     });
 

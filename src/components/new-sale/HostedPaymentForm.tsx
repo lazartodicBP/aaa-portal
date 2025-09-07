@@ -19,6 +19,7 @@ interface HostedPaymentFormProps {
   hostedPaymentPageExternalId?: string;
   promoCode?: PromoCode | null;
   autoPayEnabled?: boolean;
+  proratedAmount?: number | null; // New prop
   onError?: (error: string) => void;
   onSuccess?: (paymentData: any, additionalData?: { promoCode?: PromoCode | null; autoPayEnabled?: boolean }) => void;
   onInitialized?: () => void;
@@ -33,6 +34,7 @@ export function HostedPaymentForm({
                                     hostedPaymentPageExternalId,
                                     promoCode,
                                     autoPayEnabled,
+                                    proratedAmount, // Add to destructuring
                                     onError,
                                     onSuccess,
                                     onInitialized
@@ -114,13 +116,20 @@ export function HostedPaymentForm({
       containerRef.current.innerHTML = '';
 
       try {
+        // Determine the amount to charge
+        const paymentAmount = proratedAmount !== null && proratedAmount !== undefined
+          ? proratedAmount
+          : product.price;
+
         console.log('Initializing HPP with:', {
           accountId,
           accountName,
           productId: product.id,
           billingProfileId,
           hostedPaymentPageExternalId,
-          amount: product.price,
+          amount: paymentAmount,
+          proratedAmount,
+          originalPrice: product.price,
           benefitSet: getBenefitSet(product.membershipLevel)
         });
 
@@ -136,7 +145,7 @@ export function HostedPaymentForm({
               creditCard: { gateway: "Adyen_CC" },
               directDebit: { gateway: "Adyen_DD" },
             },
-            amount: product.price,
+            amount: paymentAmount, // Use prorated amount if provided
             targetSelector: "#payment-form",
             apiUrl: process.env.NEXT_PUBLIC_HPP_URL,
             billingProfileId: hostedPaymentPageExternalId,
@@ -192,7 +201,7 @@ export function HostedPaymentForm({
     return () => {
       clearTimeout(initTimer);
     };
-  }, [isScriptLoaded, token, accountId, product, hostedPaymentPageExternalId, billingProfileId, onError, onSuccess, onInitialized]);
+  }, [isScriptLoaded, token, accountId, product, hostedPaymentPageExternalId, billingProfileId, proratedAmount, onError, onSuccess, onInitialized]);
 
   // Cleanup on unmount
   useEffect(() => {
