@@ -56,6 +56,13 @@ export function UpgradePaymentSetup({
     }
   }, [newProduct]);
 
+  useEffect(() => {
+    if (mode === 'upgrade' && currentProduct && promoCode) {
+      const prorated = calculateProration(currentProduct, newProduct, promoCode);
+      setProratedAmount(prorated);
+    }
+  }, [autoPayEnabled]);
+
   const loadPaymentData = async () => {
     try {
       // Clear any cached token
@@ -97,12 +104,15 @@ export function UpgradePaymentSetup({
   };
 
   const calculateProration = (current: Product, newProd: Product, promo: PromoCode | null): number => {
-    let priceDiff = newProd.price - current.price;
+    let newPrice = newProd.price;
 
-    // Apply promo discount if applicable
+    // Apply promo discount to the NEW product price if applicable
     if (promo?.aaa_Promo_Code === 'autopay50' && autoPayEnabled) {
-      priceDiff = priceDiff * 0.5; // 50% discount
+      newPrice = newPrice * 0.5; // 50% discount on the new price
     }
+
+    // Calculate the difference between current price and discounted new price
+    const priceDiff = newPrice - current.price;
 
     return Math.max(0, priceDiff);
   };

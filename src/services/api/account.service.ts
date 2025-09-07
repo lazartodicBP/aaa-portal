@@ -18,7 +18,7 @@ export class AccountService {
     const firstName = options?.firstName || nameParts[0] || name;
     const lastName = options?.lastName || nameParts.slice(1).join(' ') || name;
 
-    const response = await apiClient.post('/ACCOUNT', {
+    const response: any = await apiClient.post('/ACCOUNT', {
       brmObjects: [{
         Name: name,
         Status: 'ACTIVE',
@@ -50,7 +50,7 @@ export class AccountService {
       billingCycle?: 'MONTHLY' | 'YEARLY';
     }
   ): Promise<BillingProfile> {
-    const response = await apiClient.post('/BILLING_PROFILE', {
+    const response: any = await apiClient.post('/BILLING_PROFILE', {
       brmObjects: [{
         AccountId: profile.accountId,
         BillTo: profile.billTo,
@@ -89,7 +89,7 @@ export class AccountService {
   }
 
   static async getAccountsByName(accountName: string): Promise<Account[]> {
-    const response = await apiClient.post('/query', {
+    const response: any = await apiClient.post('/query', {
       sql: `SELECT Id, Name, Status, AccountTypeId, AccountTypeIdObj.AccountType,
                    aaa_MemberID, aaa_MemberAcctType, aaa_MemberCardNumber, aaa_MemberFirstName,
                    aaa_MemberLastName, aaa_MemberMiddleName, aaa_MemberRenewalMethod,
@@ -119,7 +119,7 @@ export class AccountService {
 
   // Get account by ID - NO FALLBACK, ONLY REST ENDPOINT
   static async getAccountById(accountId: string): Promise<Account> {
-    const response = await apiClient.get(`/ACCOUNT/${accountId}`);
+    const response: any = await apiClient.get(`/ACCOUNT/${accountId}`);
 
     // Handle different possible response structures
     const acc = response.retrieveResponse?.[0] || response.brmObjects?.[0] || response;
@@ -148,7 +148,7 @@ export class AccountService {
 
   // Get AccountTypeId by AccountType name
   static async getAccountType(accountTypeName: string): Promise<string | null> {
-    const response = await apiClient.post('/query', {
+    const response: any = await apiClient.post('/query', {
       sql: `SELECT Id FROM ACCOUNT_TYPE WHERE AccountType = '${accountTypeName}'`
     });
 
@@ -166,7 +166,7 @@ export class AccountService {
 
   // Get billing profile by ID
   static async getBillingProfileById(profileId: string): Promise<BillingProfile> {
-    const response = await apiClient.get(`/BILLING_PROFILE/${profileId}`);
+    const response: any = await apiClient.get(`/BILLING_PROFILE/${profileId}`);
 
     // Handle the retrieveResponse array structure
     const profile = response.retrieveResponse?.[0];
@@ -180,7 +180,7 @@ export class AccountService {
 
   // Get billing profile by Account ID
   static async getBillingProfileByAccountId(accountId: string): Promise<BillingProfile> {
-    const response = await apiClient.post('/query', {
+    const response: any = await apiClient.post('/query', {
       sql: `SELECT Id, AccountId, BillTo, Attention, Address1, Address2, City, State, Zip,
                    Country, aaa_Email, Email, CurrencyCode, BillingCycle, PaymentTermDays,
                    BillingMethod, InvoiceDeliveryMethod, HostedPaymentPageExternalId, Status

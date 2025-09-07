@@ -13,7 +13,7 @@ export class ProductService {
     try {
       const query = `Name IN ('Classic Basic Monthly', 'Classic Basic Annual', 'Plus Monthly', 'Plus Annual', 'Premier Monthly', 'Premier Annual')`;
 
-      const response = await apiClient.get('/PRODUCT', {
+      const response: any = await apiClient.get('/PRODUCT', {
         params: {
           queryAnsiSql: query
         }
@@ -57,7 +57,7 @@ export class ProductService {
 
   static async getProductById(productId: string): Promise<Product> {
     try {
-      const response = await apiClient.get(`/PRODUCT/${productId}`);
+      const response: any = await apiClient.get(`/PRODUCT/${productId}`);
 
       console.log("Product response:", response);
       // Standardized response handling
@@ -98,7 +98,7 @@ export class ProductService {
     // Get BenefitSet based on membership level
     const benefitSet = getBenefitSet(product.membershipLevel);
 
-    const response = await apiClient.post('/ACCOUNT_PRODUCT', {
+    const response: any = await apiClient.post('/ACCOUNT_PRODUCT', {
       brmObjects: [{
         AccountId: accountId,
         Quantity: '1',
@@ -130,7 +130,7 @@ export class ProductService {
     updates: any
   ): Promise<AccountProduct> {
     // Use PUT method as per API docs, not PATCH
-    const response = await apiClient.put(`/ACCOUNT_PRODUCT/${productId}`, {
+    const response: any = await apiClient.put(`/ACCOUNT_PRODUCT/${productId}`, {
       brmObjects: updates  // Send as object, not array
     });
 
@@ -160,7 +160,7 @@ export class ProductService {
   }
 
   static async getAccountProductById(productId: string): Promise<AccountProduct> {
-    const response = await apiClient.get(`/ACCOUNT_PRODUCT/${productId}`);
+    const response: any = await apiClient.get(`/ACCOUNT_PRODUCT/${productId}`);
 
     // Handle different possible response structures
     const accountProduct = response.retrieveResponse?.[0] || response.brmObjects?.[0] || response;
@@ -188,7 +188,7 @@ export class ProductService {
   // Get Account Products by Account ID
   static async getAccountProductsByAccountId(accountId: string): Promise<AccountProduct[]> {
     const query = `AccountId = '${accountId}'`;
-    const response = await apiClient.get('/ACCOUNT_PRODUCT', {
+    const response: any = await apiClient.get('/ACCOUNT_PRODUCT', {
       params: {
         queryAnsiSql: query
       }

@@ -14,7 +14,7 @@ export class PromoService {
         FROM AAANE_PROMO_CODES 
         WHERE CustomerServiceEnabled = '1'`;
 
-      const response = await apiClient.post('/query', {
+      const response: any = await apiClient.post('/query', {
         sql: query
       });
 
@@ -42,7 +42,7 @@ export class PromoService {
     try {
       const startDate = getFormattedDate(new Date());
 
-      const response = await apiClient.post('/AAANE_ACCOUNT_PROMO_CODES', {
+      const response: any = await apiClient.post('/AAANE_ACCOUNT_PROMO_CODES', {
         brmObjects: [{
           AccountId: accountId,
           aaa_Promo_Code: promoCodeId,
@@ -78,7 +78,7 @@ export class PromoService {
     try {
       const query = `AccountId = '${accountId}'`;
 
-      const response = await apiClient.get('/AAANE_ACCOUNT_PROMO_CODES', {
+      const response: any = await apiClient.get('/AAANE_ACCOUNT_PROMO_CODES', {
         params: {
           queryAnsiSql: query
         }
@@ -104,7 +104,7 @@ export class PromoService {
    */
   static async deactivatePromoCode(promoCodeId: string): Promise<void> {
     try {
-      const response = await apiClient.put(`/AAANE_ACCOUNT_PROMO_CODES/${promoCodeId}`, {
+      const response: any = await apiClient.put(`/AAANE_ACCOUNT_PROMO_CODES/${promoCodeId}`, {
         brmObjects: {
           Id: promoCodeId,
           aaa_PromoCodeStatus: 'Deactivated'
